@@ -12,11 +12,56 @@
       .card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-top: 1rem; }
       .muted { color: #666; font-size: 0.9rem; }
       pre { white-space: pre-wrap; }
+      .button-group { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+      .button-help { margin-top: 0.4rem; }
+      .button-help span { display: inline-block; margin-right: 1rem; }
+      .status-banner {
+        margin-top: 0.75rem;
+        padding: 0.7rem 0.9rem;
+        border-radius: 8px;
+        border: 1px solid #b8d6ff;
+        background: #eef6ff;
+      }
+      .status-title { font-weight: 700; margin-right: 0.5rem; }
+      .status-running { border-color: #ffd27a; background: #fff8e8; }
+      .status-ok { border-color: #9dd9a4; background: #ecfbef; }
+      .status-error { border-color: #f3a8a8; background: #fff0f0; }
+      .ops-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+      .ops-kv { margin: 0; }
+      .ops-kv div { margin: 0.2rem 0; font-size: 0.92rem; }
+      .ops-events {
+        background: #fafafa;
+        border: 1px solid #e2e2e2;
+        border-radius: 6px;
+        padding: 0.6rem;
+        max-height: 180px;
+        overflow: auto;
+        white-space: pre-wrap;
+        font-size: 0.85rem;
+      }
+      .guide-list { margin: 0.5rem 0 0 1rem; padding: 0; }
+      .guide-list li { margin-bottom: 0.35rem; }
     </style>
   </head>
   <body>
     <h1>Voice AI Agent Sample</h1>
     <p class="muted">Record audio, transcribe, search, get AI answer, and hear TTS output.</p>
+
+    <div class="card">
+      <h3>Page Summary</h3>
+      <p class="muted">
+        This page demonstrates an end-to-end voice AI workflow: audio input -> speech-to-text -> search grounding
+        -> LLM answer -> text-to-speech playback. It supports both single-response mode and live streaming mode.
+      </p>
+      <h3>How to Use</h3>
+      <ol class="guide-list">
+        <li>Select an available <strong>LLM Provider</strong> and <strong>Model</strong>.</li>
+        <li>Provide audio by either recording (`Start Recording`/`Stop Recording`) or uploading a file.</li>
+        <li>Click <strong>Run Once</strong> for one final response, or <strong>Run Live</strong> for stage-by-stage updates.</li>
+        <li>Review transcript, answer, and search evidence in the output panel.</li>
+        <li>Use the <strong>Operations & Debug</strong> section at the bottom to monitor status, timing, and runtime events.</li>
+      </ol>
+    </div>
 
     <div class="card">
       <div class="row">
@@ -39,11 +84,24 @@
       </div>
 
       <div class="row">
-        <button id="runBtn">Run Agent Turn</button>
-        <button id="streamBtn">Run Agent Stream</button>
+        <div class="button-group">
+          <button id="runBtn" title="Runs full pipeline and returns one final response payload.">
+            Run Once (Single Response)
+          </button>
+          <button id="streamBtn" title="Runs pipeline with live stage updates and streamed audio chunks.">
+            Run Live (Streaming Updates)
+          </button>
+        </div>
+        <div class="muted button-help">
+          <span><strong>Run Once:</strong> best for simple testing; one final response.</span>
+          <span><strong>Run Live:</strong> shows progress (`transcribing`, `searching`, `answering`) while processing.</span>
+        </div>
       </div>
 
-      <div class="row muted" id="status">Idle</div>
+      <div class="status-banner" id="statusBanner">
+        <span class="status-title">System Status:</span>
+        <span id="status">Idle</span>
+      </div>
     </div>
 
     <div class="card">
@@ -55,6 +113,22 @@
       <pre id="searchResults"></pre>
       <h3>Audio Output</h3>
       <audio id="audioPlayer" controls></audio>
+    </div>
+
+    <div class="card">
+      <h3>Operations & Debug</h3>
+      <div class="ops-grid">
+        <div>
+          <h4>Performance Indicators</h4>
+          <div class="ops-kv" id="perfPanel"></div>
+        </div>
+        <div>
+          <h4>Runtime Debug Info</h4>
+          <div class="ops-kv" id="debugPanel"></div>
+        </div>
+      </div>
+      <h4>Recent Events</h4>
+      <div class="ops-events" id="eventsPanel">No events yet.</div>
     </div>
 
     <script>
@@ -72,15 +146,37 @@
       const answerEl = document.getElementById("answer");
       const searchResultsEl = document.getElementById("searchResults");
       const audioPlayer = document.getElementById("audioPlayer");
+      const statusBanner = document.getElementById("statusBanner");
+      const perfPanel = document.getElementById("perfPanel");
+      const debugPanel = document.getElementById("debugPanel");
+      const eventsPanel = document.getElementById("eventsPanel");
       const llmProvider = document.getElementById("llmProvider");
       const llmModel = document.getElementById("llmModel");
       let currentAudioUrl = null;
+      const runtime = {
+        mode: "-",
+        stage: "Idle",
+        provider: "-",
+        model: "-",
+        requestStartedAt: null,
+        durationMs: 0,
+        transcriptChars: 0,
+        answerChars: 0,
+        searchResultCount: 0,
+        audioChunks: 0,
+        audioBytes: 0,
+        lastError: "-",
+        events: []
+      };
       let modelOptionsByProvider = {
         openai: ["gpt-3.5-turbo", "gpt-4-0613"]
       };
 
       audioPlayer.addEventListener("error", () => {
-        statusEl.textContent = "Audio playback error. Try Run Agent Turn again.";
+        setStatus("Audio playback error. Try Run Agent Turn again.", "error");
+        runtime.lastError = "Audio playback error";
+        addEvent("audio:error");
+        renderOps();
       });
       llmProvider.addEventListener("change", populateModelOptions);
       initializeCapabilities();
@@ -92,10 +188,12 @@
         mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
         mediaRecorder.onstop = () => {
           recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
-          statusEl.textContent = "Recording captured";
+          setStatus("Recording captured", "ok");
+          addEvent(`recording:captured bytes=${recordedBlob.size}`);
         };
         mediaRecorder.start();
-        statusEl.textContent = "Recording...";
+        setStatus("Recording in progress...", "running");
+        addEvent("recording:started");
         startBtn.disabled = true;
         stopBtn.disabled = false;
       };
@@ -108,7 +206,8 @@
 
       runBtn.onclick = async () => {
         try {
-          statusEl.textContent = "Uploading and processing...";
+          beginRequest("single");
+          setStatus("Uploading and processing...", "running");
           transcriptEl.textContent = "";
           answerEl.textContent = "";
           searchResultsEl.textContent = "";
@@ -127,6 +226,7 @@
           form.append("audio", blob, blob.name || "recording.webm");
           form.append("llmProvider", llmProvider.value);
           form.append("llmModel", llmModel.value);
+          addEvent(`request:single provider=${llmProvider.value} model=${llmModel.value}`);
 
           const res = await fetch("/api/agent/turn", { method: "POST", body: form });
           const json = await res.json();
@@ -135,22 +235,30 @@
           transcriptEl.textContent = json.transcript;
           answerEl.textContent = json.answer;
           searchResultsEl.textContent = JSON.stringify(json.searchResults, null, 2);
+          runtime.provider = json.llm?.provider || llmProvider.value;
+          runtime.model = json.llm?.model || llmModel.value;
+          runtime.transcriptChars = (json.transcript || "").length;
+          runtime.answerChars = (json.answer || "").length;
+          runtime.searchResultCount = (json.searchResults || []).length;
 
           const binary = atob(json.audioBase64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
           const outBlob = new Blob([bytes], { type: json.audioMimeType || "audio/mpeg" });
+          runtime.audioChunks = 1;
+          runtime.audioBytes = outBlob.size;
           setPlayerBlob(outBlob);
 
-          statusEl.textContent = "Done";
+          finishRequest("Completed single-response run");
         } catch (err) {
-          statusEl.textContent = `Error: ${err.message}`;
+          failRequest(err);
         }
       };
 
       streamBtn.onclick = async () => {
         try {
-          statusEl.textContent = "Starting stream...";
+          beginRequest("stream");
+          setStatus("Starting stream...", "running");
           transcriptEl.textContent = "";
           answerEl.textContent = "";
           searchResultsEl.textContent = "";
@@ -161,6 +269,7 @@
           form.append("audio", blob, blob.name || "recording.webm");
           form.append("llmProvider", llmProvider.value);
           form.append("llmModel", llmModel.value);
+          addEvent(`request:stream provider=${llmProvider.value} model=${llmModel.value}`);
 
           const res = await fetch("/api/agent/stream", { method: "POST", body: form });
           if (!res.ok) {
@@ -188,24 +297,38 @@
             for (const segment of segments) {
               handleSseSegment(segment, {
                 onStatus: (stage) => {
-                  statusEl.textContent = `Streaming: ${stage}`;
+                  runtime.stage = stage;
+                  setStatus(`Streaming: ${stage}`, "running");
+                  addEvent(`stage:${stage}`);
+                  renderOps();
                 },
                 onTranscript: (text) => {
                   transcriptEl.textContent = text;
+                  runtime.transcriptChars = (text || "").length;
+                  renderOps();
                 },
                 onSearchResults: (items) => {
                   searchResultsEl.textContent = JSON.stringify(items, null, 2);
+                  runtime.searchResultCount = (items || []).length;
+                  renderOps();
                 },
                 onAnswer: (text) => {
                   answerEl.textContent = text;
+                  runtime.answerChars = (text || "").length;
+                  renderOps();
                 },
                 onAudioChunk: (base64Chunk) => {
                   if (base64Chunk) {
-                    audioChunks.push(base64ToBytes(base64Chunk));
+                    const chunkBytes = base64ToBytes(base64Chunk);
+                    audioChunks.push(chunkBytes);
+                    runtime.audioChunks += 1;
+                    runtime.audioBytes += chunkBytes.byteLength;
+                    renderOps();
                   }
                 },
                 onTtsComplete: (mimeType) => {
                   if (mimeType) outputMimeType = mimeType;
+                  addEvent(`tts:complete mime=${mimeType || "-"}`);
                 },
                 onDone: () => {
                   if (!audioChunks.length) {
@@ -213,7 +336,7 @@
                   }
                   const outBlob = new Blob(audioChunks, { type: outputMimeType || "audio/mpeg" });
                   setPlayerBlob(outBlob);
-                  statusEl.textContent = "Stream done";
+                  finishRequest("Stream completed");
                 },
                 onError: (message) => {
                   throw new Error(message || "Unknown stream error.");
@@ -222,7 +345,7 @@
             }
           }
         } catch (err) {
-          statusEl.textContent = `Error: ${err.message}`;
+          failRequest(err);
         }
       };
 
@@ -275,6 +398,8 @@
 
         // Best effort: if browser allows, start playback automatically.
         audioPlayer.play().catch(() => {});
+        addEvent(`audio:ready bytes=${blob.size}`);
+        renderOps();
       }
 
       function populateModelOptions() {
@@ -305,15 +430,85 @@
             llmProvider.appendChild(option);
           }
           if (!providers.length) {
-            statusEl.textContent = "No LLM providers enabled. Check API keys.";
+            setStatus("No LLM providers enabled. Check API keys.", "error");
             return;
           }
           llmProvider.value = providers[0];
           populateModelOptions();
         } catch (err) {
-          statusEl.textContent = `Error: ${err.message}`;
+          setStatus(`Error: ${err.message}`, "error");
           populateModelOptions();
         }
+      }
+
+      function beginRequest(mode) {
+        runtime.mode = mode;
+        runtime.stage = "starting";
+        runtime.provider = llmProvider.value;
+        runtime.model = llmModel.value;
+        runtime.requestStartedAt = Date.now();
+        runtime.durationMs = 0;
+        runtime.transcriptChars = 0;
+        runtime.answerChars = 0;
+        runtime.searchResultCount = 0;
+        runtime.audioChunks = 0;
+        runtime.audioBytes = 0;
+        runtime.lastError = "-";
+        runtime.events = [];
+        addEvent(`request:begin mode=${mode}`);
+        renderOps();
+      }
+
+      function finishRequest(message) {
+        runtime.durationMs = runtime.requestStartedAt ? Date.now() - runtime.requestStartedAt : 0;
+        runtime.stage = "done";
+        setStatus(message, "ok");
+        addEvent(`request:done durationMs=${runtime.durationMs}`);
+        renderOps();
+      }
+
+      function failRequest(err) {
+        runtime.durationMs = runtime.requestStartedAt ? Date.now() - runtime.requestStartedAt : 0;
+        runtime.stage = "error";
+        runtime.lastError = err?.message || String(err);
+        setStatus(`Error: ${runtime.lastError}`, "error");
+        addEvent(`request:error ${runtime.lastError}`);
+        renderOps();
+      }
+
+      function setStatus(message, tone) {
+        statusEl.textContent = message;
+        statusBanner.classList.remove("status-running", "status-ok", "status-error");
+        if (tone === "running") statusBanner.classList.add("status-running");
+        if (tone === "ok") statusBanner.classList.add("status-ok");
+        if (tone === "error") statusBanner.classList.add("status-error");
+      }
+
+      function addEvent(entry) {
+        const ts = new Date().toLocaleTimeString();
+        runtime.events.push(`[${ts}] ${entry}`);
+        runtime.events = runtime.events.slice(-18);
+      }
+
+      function renderOps() {
+        perfPanel.innerHTML = `
+          <div><strong>Mode:</strong> ${runtime.mode}</div>
+          <div><strong>Stage:</strong> ${runtime.stage}</div>
+          <div><strong>Total Duration:</strong> ${runtime.durationMs} ms</div>
+          <div><strong>Search Results:</strong> ${runtime.searchResultCount}</div>
+          <div><strong>Audio Chunks:</strong> ${runtime.audioChunks}</div>
+          <div><strong>Audio Bytes:</strong> ${runtime.audioBytes}</div>
+        `;
+        debugPanel.innerHTML = `
+          <div><strong>Provider:</strong> ${runtime.provider}</div>
+          <div><strong>Model:</strong> ${runtime.model}</div>
+          <div><strong>Transcript Chars:</strong> ${runtime.transcriptChars}</div>
+          <div><strong>Answer Chars:</strong> ${runtime.answerChars}</div>
+          <div><strong>Last Error:</strong> ${runtime.lastError}</div>
+        `;
+        eventsPanel.textContent = runtime.events.length
+          ? runtime.events.join("\n")
+          : "No events yet.";
       }
     </script>
   </body>
