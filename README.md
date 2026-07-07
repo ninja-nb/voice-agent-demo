@@ -32,6 +32,11 @@ Sample project that accepts audio input, transcribes it, runs search-backed AI a
    - `OPENAI_API_KEY` (required for STT + TTS + OpenAI LLM)
    - `SERPER_API_KEY` (optional but recommended for live search)
    - `ANTHROPIC_API_KEY` (needed only if selecting anthropic provider)
+   - LiveKit (optional, needed for realtime room auth endpoint):
+     - `LIVEKIT_URL`
+     - `LIVEKIT_API_KEY`
+     - `LIVEKIT_API_SECRET`
+     - `LIVEKIT_DEFAULT_ROOM=voice-agent-room` (optional default room)
    - Optional model defaults:
      - `DEFAULT_OPENAI_MODEL=gpt-4.1-mini`
      - `DEFAULT_ANTHROPIC_MODEL=claude-haiku-4-5-20251001` (cheaper Anthropic option)
@@ -79,6 +84,22 @@ Response stream:
 - repeated `tts_audio_chunk` events (base64 audio chunks)
 - `tts_complete`
 - `done`
+
+### `POST /api/livekit/token`
+
+Generates a short-lived LiveKit access token for browser room join.
+
+`application/json` body (all optional):
+- `room`: room name (defaults to `LIVEKIT_DEFAULT_ROOM`)
+- `identity`: participant identity (auto-generated if omitted)
+- `name`: display name (defaults to `identity`)
+
+Response:
+- `url`: LiveKit server URL (`wss://...`)
+- `room`
+- `identity`
+- `name`
+- `token`
 
 ## Notes
 

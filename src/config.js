@@ -7,6 +7,10 @@ export const config = {
   openaiApiKey: process.env.OPENAI_API_KEY || "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
   serperApiKey: process.env.SERPER_API_KEY || "",
+  livekitUrl: process.env.LIVEKIT_URL || "",
+  livekitApiKey: process.env.LIVEKIT_API_KEY || "",
+  livekitApiSecret: process.env.LIVEKIT_API_SECRET || "",
+  livekitDefaultRoom: process.env.LIVEKIT_DEFAULT_ROOM || "voice-agent-room",
   defaultLlmProvider: process.env.DEFAULT_LLM_PROVIDER || "openai",
   // Backward-compatible default used if provider-specific defaults are not set.
   defaultLlmModel: process.env.DEFAULT_LLM_MODEL || "gpt-4.1-mini",

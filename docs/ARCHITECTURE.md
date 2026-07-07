@@ -227,3 +227,63 @@ Because orchestration depends on interfaces (not concrete SDKs), provider swaps 
 - Add tool-call policy controls (max tool hops, allow-list, timeout budgets).
 - Add memory abstraction for multi-turn conversations.
 - Add structured telemetry and dashboard-friendly logs.
+
+## 12) LiveKit Realtime Architecture
+
+This variant keeps the same STT/Search/LLM/TTS business logic and introduces LiveKit for realtime media transport and session handling.
+
+```mermaid
+flowchart TD
+    userClient[WebClient]
+    appApi[App API Node Express]
+    tokenApi[Token Endpoint /api/livekit/token]
+    lkRoom[LiveKit Room]
+    lkWorker[LiveKit Worker Bridge]
+    sttProvider[SpeechToTextProvider OpenAI]
+    searchTool[SearchTool Serper]
+    llmProvider[LlmProvider OpenAI Anthropic]
+    ttsProvider[TextToSpeechProvider OpenAI]
+    audioOut[Realtime Agent Audio]
+
+    userClient -->|Request join token| tokenApi
+    tokenApi -->|JWT token| userClient
+    userClient -->|Join + publish mic track| lkRoom
+    lkRoom -->|Audio stream| lkWorker
+    lkWorker --> sttProvider
+    sttProvider --> searchTool
+    searchTool --> llmProvider
+    llmProvider --> ttsProvider
+    ttsProvider --> lkWorker
+    lkWorker -->|Publish synthesized audio| lkRoom
+    lkRoom --> audioOut
+    audioOut --> userClient
+```
+
+### LiveKit session sequence
+
+```mermaid
+sequenceDiagram
+    participant UI as WebClient
+    participant API as App API
+    participant LK as LiveKit Room
+    participant WK as LiveKit Worker
+    participant STT as STT Provider
+    participant SRCH as Search Tool
+    participant LLM as LLM Provider
+    participant TTS as TTS Provider
+
+    UI->>API: POST /api/livekit/token
+    API-->>UI: access token
+    UI->>LK: connect + publish mic
+    LK->>WK: incoming audio frames
+    WK->>STT: transcribe buffered turn
+    STT-->>WK: transcript
+    WK->>SRCH: search(transcript)
+    SRCH-->>WK: results
+    WK->>LLM: generate answer(query, context)
+    LLM-->>WK: answer text
+    WK->>TTS: synthesize(answer)
+    TTS-->>WK: audio
+    WK->>LK: publish agent audio track
+    LK-->>UI: realtime playback
+```

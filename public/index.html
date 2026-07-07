@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voice Agent Demo</title>
     <style>
-      body { font-family: Arial, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+      body { font-family: Arial, sans-serif; max-width: 760px; margin: 1.25rem auto; padding: 0 0.75rem; }
       .row { margin: 0.75rem 0; }
       button { margin-right: 0.5rem; }
       textarea { width: 100%; min-height: 110px; }
@@ -30,6 +30,22 @@
         margin: 0 0 0.5rem 0;
         font-size: 0.98rem;
       }
+      .step-state {
+        display: inline-block;
+        margin-left: 0.45rem;
+        padding: 0.1rem 0.45rem;
+        border-radius: 999px;
+        border: 1px solid #d7d7d7;
+        background: #f7f7f7;
+        color: #555;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .step-state-active { border-color: #ffd27a; background: #fff8e8; color: #8a5a00; }
+      .step-state-done { border-color: #9dd9a4; background: #ecfbef; color: #155724; }
+      .step-state-blocked { border-color: #cfcfcf; background: #f4f4f4; color: #6a6a6a; }
+      .step-state-error { border-color: #f3a8a8; background: #fff0f0; color: #9b1c1c; }
       .workflow-step label {
         display: block;
         margin: 0.4rem 0 0.2rem 0;
@@ -39,6 +55,7 @@
       .workflow-step input[type="file"] {
         width: 100%;
       }
+      .hidden { display: none; }
       .status-banner {
         margin-top: 0.75rem;
         padding: 0.7rem 0.9rem;
@@ -47,6 +64,28 @@
         background: #eef6ff;
       }
       .status-title { font-weight: 700; margin-right: 0.5rem; }
+      .mode-indicator {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 0.65rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid #c6c6c6;
+        background: #f4f4f4;
+        color: #222;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+      .mode-classic {
+        border-color: #8db5ff;
+        background: #eaf2ff;
+        color: #0f3a8a;
+      }
+      .mode-livekit {
+        border-color: #9dd9a4;
+        background: #ecfbef;
+        color: #155724;
+      }
       .recording-indicator {
         display: none;
         margin-left: 0.75rem;
@@ -86,35 +125,41 @@
       .guide-list { margin: 0.5rem 0 0 1rem; padding: 0; }
       .guide-list li { margin-bottom: 0.35rem; }
       .playback-fallback { margin-top: 0.5rem; }
+      .advanced-section { display: none; }
     </style>
   </head>
   <body>
-    <h1>Voice Channel Orchestrator Demo</h1>
-    <p class="muted">Run an end-to-end agent turn with speech input, tool grounding, model reasoning, and voice response output.</p>
+    <h1>Voice Agent Demo</h1>
+    <p class="muted">Simple transport-first demo for Classic API and LiveKit mode.</p>
 
     <div class="card">
-      <h3>Demo Flow Overview</h3>
-      <p class="muted">
-        End-to-end agent execution pipeline: input capture -> STT adapter -> search tool grounding ->
-        LLM provider inference -> TTS adapter playback. You can run a synchronous turn or stream orchestration events.
-      </p>
       <h3>Quick Steps</h3>
-      <ol class="guide-list">
-        <li><strong>Step 1:</strong> Choose an <strong>LLM Provider</strong> and <strong>LLM Model</strong>.</li>
-        <li><strong>Step 2:</strong> Capture user utterance by recording or upload an audio file (auto-stop at 30s, with a 5s warning).</li>
-        <li><strong>Step 3:</strong> Run the turn with <strong>Run Live</strong> (streaming stages) or <strong>Run Once</strong> (single final response).</li>
-        <li><strong>Step 4:</strong> Review transcript, grounded answer, search evidence, and synthesized voice output.</li>
-        <li><strong>Step 5:</strong> Use <strong>Observability & Telemetry</strong> for stage timing, event trail, and runtime details.</li>
+      <ol class="guide-list" id="quickStepsList">
+        <li><strong>Step 1:</strong> Choose <strong>Transport Mode</strong> (Classic vs LiveKit).</li>
+        <li><strong>Step 2:</strong> Choose an <strong>LLM Provider</strong> and <strong>LLM Model</strong>.</li>
+        <li><strong>Step 3:</strong> Capture user utterance by recording or upload an audio file (auto-stop at 30s, with a 5s warning).</li>
+        <li><strong>Step 4:</strong> Run the turn with <strong>Run Live</strong> (streaming stages) or <strong>Run Once</strong> (single final response).</li>
+        <li><strong>Step 5:</strong> Review transcript, grounded answer, search evidence, and synthesized voice output.</li>
+        <li><strong>Step 6:</strong> Use <strong>Observability & Telemetry</strong> for stage timing, event trail, and runtime details.</li>
       </ol>
     </div>
 
     <div class="card">
-      <h3>Workflow Controls</h3>
-      <p class="muted">Follow Step 1 -> Step 2 -> Step 3 for a cleaner demo flow.</p>
+      <h3>Controls</h3>
+      <p class="muted">Start with transport mode, then follow the visible controls.</p>
 
       <div class="workflow-grid">
         <div class="workflow-step">
-          <h4>Step 1: Choose Model Setup</h4>
+          <h4>Step 1: Choose Transport + Model Setup <span id="step1State" class="step-state">Ready</span></h4>
+          <label for="transportMode">Transport Mode</label>
+          <select id="transportMode">
+            <option value="classic">Classic (HTTP API)</option>
+            <option value="livekit">LiveKit (Realtime Session)</option>
+          </select>
+          <p class="muted">
+            <strong>Classic:</strong> record/upload and run request-based turns.
+            <strong>LiveKit:</strong> connect a realtime session and send turns from live capture controls.
+          </p>
           <label for="llmProvider">LLM Provider</label>
           <select id="llmProvider">
             <option value="openai">openai</option>
@@ -122,21 +167,42 @@
           </select>
           <label for="llmModel">LLM Model</label>
           <select id="llmModel"></select>
+          <p class="muted" id="transportHelp">
+            Classic mode uses record/upload + Run Live/Run Once. LiveKit mode uses connect/mute/disconnect controls.
+          </p>
         </div>
 
         <div class="workflow-step">
-          <h4>Step 2: Capture or Upload Audio</h4>
-          <div class="button-group">
-            <button id="startBtn">Start Recording</button>
-            <button id="stopBtn" disabled>Stop Recording</button>
-            <button id="downloadRecordingBtn" disabled>Download Recording</button>
+          <h4 id="step2Heading">Step 2: Capture or Upload Audio <span id="step2State" class="step-state">Ready</span></h4>
+          <div id="classicControls">
+            <div class="button-group">
+              <button id="startBtn">Start Recording</button>
+              <button id="stopBtn" disabled>Stop Recording</button>
+              <button id="downloadRecordingBtn" disabled>Download Recording</button>
+            </div>
+            <label for="audioFile">Upload Audio File</label>
+            <input type="file" id="audioFile" accept="audio/*" />
           </div>
-          <label for="audioFile">Upload Audio File</label>
-          <input type="file" id="audioFile" accept="audio/*" />
+          <div id="livekitControls" class="hidden">
+            <label for="livekitRoom">LiveKit Room</label>
+            <input type="text" id="livekitRoom" value="voice-agent-room" />
+            <label for="livekitIdentity">Participant Identity</label>
+            <input type="text" id="livekitIdentity" value="" placeholder="optional" />
+            <div class="button-group" style="margin-top: 0.5rem;">
+              <button id="livekitConnectBtn">Connect LiveKit</button>
+              <button id="livekitDisconnectBtn" disabled>Disconnect</button>
+              <button id="livekitMuteBtn" disabled>Mute</button>
+            </div>
+            <div class="button-group" style="margin-top: 0.5rem;">
+              <button id="livekitStartTurnBtn" disabled>Start Turn</button>
+              <button id="livekitStopTurnBtn" disabled>Stop & Ask Agent</button>
+            </div>
+            <div class="muted">Use these controls in LiveKit mode instead of recording/upload.</div>
+          </div>
         </div>
 
         <div class="workflow-step">
-          <h4>Step 3: Run the Agent Turn</h4>
+          <h4 id="step3Heading">Step 3: Run the Agent Turn <span id="step3State" class="step-state">Ready</span></h4>
           <div class="button-group">
             <button id="streamBtn" title="Runs pipeline with live stage updates and streamed audio chunks.">
               Run Live (Streaming Orchestration)
@@ -155,6 +221,7 @@
       <div class="status-banner" id="statusBanner">
         <span class="status-title">System Status:</span>
         <span id="status">Ready</span>
+        <span id="modeIndicator" class="mode-indicator mode-classic">Transport: Classic (HTTP API)</span>
         <span id="recordingIndicator" class="recording-indicator">
           <span class="recording-spinner"></span>
           <span id="recordingElapsedText">Recording... 0s</span>
@@ -164,7 +231,7 @@
 
     <div class="card">
       <h3>Step 4: Results</h3>
-      <p class="muted">Outputs from the completed agent turn.</p>
+      <p class="muted">Transcript, grounded answer, sources, and generated audio.</p>
       <h3>Transcript</h3>
       <p class="muted">STT adapter output from user utterance.</p>
       <pre id="transcript"></pre>
@@ -182,7 +249,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card advanced-section">
       <h3>Step 5: Observability & Telemetry</h3>
       <p class="muted">Live orchestration diagnostics: runtime stages, latency, chunking, and event-level telemetry.</p>
       <div class="ops-grid">
@@ -199,7 +266,7 @@
       <div class="ops-events" id="eventsPanel">No events yet.</div>
     </div>
 
-    <div class="card">
+    <div class="card advanced-section">
       <h3>Scope: Assumptions & Future Improvements</h3>
       <p class="muted">
         This is a prototype for architecture demonstration, not a production deployment.
@@ -247,11 +314,34 @@
       const eventsPanel = document.getElementById("eventsPanel");
       const llmProvider = document.getElementById("llmProvider");
       const llmModel = document.getElementById("llmModel");
+      const transportMode = document.getElementById("transportMode");
+      const transportHelp = document.getElementById("transportHelp");
+      const quickStepsList = document.getElementById("quickStepsList");
+      const step2Heading = document.getElementById("step2Heading");
+      const step3Heading = document.getElementById("step3Heading");
+      const classicControls = document.getElementById("classicControls");
+      const livekitControls = document.getElementById("livekitControls");
       const recordingIndicator = document.getElementById("recordingIndicator");
       const recordingElapsedText = document.getElementById("recordingElapsedText");
+      const modeIndicator = document.getElementById("modeIndicator");
+      const livekitRoom = document.getElementById("livekitRoom");
+      const livekitIdentity = document.getElementById("livekitIdentity");
+      const livekitConnectBtn = document.getElementById("livekitConnectBtn");
+      const livekitDisconnectBtn = document.getElementById("livekitDisconnectBtn");
+      const livekitMuteBtn = document.getElementById("livekitMuteBtn");
+      const livekitStartTurnBtn = document.getElementById("livekitStartTurnBtn");
+      const livekitStopTurnBtn = document.getElementById("livekitStopTurnBtn");
+      const step1State = document.getElementById("step1State");
+      let step2State = document.getElementById("step2State");
+      let step3State = document.getElementById("step3State");
       let currentAudioUrl = null;
+      let livekitConnected = false;
+      let livekitMuted = false;
+      let livekitTurnRecorder = null;
+      let livekitTurnChunks = [];
       const runtime = {
         mode: "-",
+        transportMode: "classic",
         stage: "Idle",
         provider: "-",
         model: "-",
@@ -299,10 +389,12 @@
         }
       };
       llmProvider.addEventListener("change", populateModelOptions);
+      transportMode.addEventListener("change", applyTransportModeUi);
       audioFile.addEventListener("change", () => {
         if (audioFile.files?.[0]) {
-          setStatus("Audio file selected. Proceed to Step 3: Run Live or Run Once.", "ok");
+          setStatus("Audio file selected. Proceed to Step 3.", "ok");
           addEvent(`audio:file_selected bytes=${audioFile.files[0].size}`);
+          updateStepStatuses();
         }
       });
       downloadRecordingBtn.onclick = () => {
@@ -319,6 +411,9 @@
         addEvent(`recording:downloaded bytes=${recordedBlob.size}`);
       };
       initializeCapabilities();
+      setTransportMode("classic", "Classic (HTTP API)");
+      applyTransportModeUi();
+      updateStepStatuses();
 
       startBtn.onclick = async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -332,8 +427,9 @@
           clearRecordingTimers();
           recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
           updateDownloadRecordingButton();
-          setStatus("Recording captured. Proceed to Step 3: Run Live or Run Once.", "ok");
+          setStatus("Recording captured. Proceed to Step 3.", "ok");
           addEvent(`recording:captured bytes=${recordedBlob.size}`);
+          updateStepStatuses();
         };
         mediaRecorder.start();
         recordingWarningTimer = setTimeout(() => {
@@ -424,103 +520,224 @@
 
       streamBtn.onclick = async () => {
         try {
-          beginRequest("stream");
-          setStatus("Starting stream...", "running");
-          transcriptEl.textContent = "";
-          answerEl.textContent = "";
-          searchResultsEl.textContent = "";
-          audioPlayer.removeAttribute("src");
-
           const blob = getSelectedAudioBlob();
-          setInputMetadata(blob);
-          setStage("connecting_stream");
-          const form = new FormData();
-          form.append("audio", blob, blob.name || `recording.${mimeToExtension(blob.type)}`);
-          form.append("llmProvider", llmProvider.value);
-          form.append("llmModel", llmModel.value);
-          addEvent(`request:stream provider=${llmProvider.value} model=${llmModel.value}`);
-
-          const res = await fetch("/api/agent/stream", { method: "POST", body: form });
-          if (!res.ok) {
-            const txt = await res.text();
-            throw new Error(txt || `Stream request failed: ${res.status}`);
-          }
-          if (!res.body) {
-            throw new Error("No stream body returned.");
-          }
-
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-          const audioChunks = [];
-          let outputMimeType = "audio/mpeg";
-
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const segments = buffer.split("\n\n");
-            buffer = segments.pop() || "";
-
-            for (const segment of segments) {
-              if (!runtime.firstEventLatencyMs && runtime.requestStartedAt) {
-                runtime.firstEventLatencyMs = Date.now() - runtime.requestStartedAt;
-              }
-              handleSseSegment(segment, {
-                onStatus: (stage) => {
-                  setStage(stage);
-                  setStatus(`Streaming: ${stage}`, "running");
-                  addEvent(`stage:${stage}`);
-                  renderOps();
-                },
-                onTranscript: (text) => {
-                  transcriptEl.textContent = text;
-                  runtime.transcriptChars = (text || "").length;
-                  renderOps();
-                },
-                onSearchResults: (items) => {
-                  searchResultsEl.textContent = JSON.stringify(items, null, 2);
-                  runtime.searchResultCount = (items || []).length;
-                  renderOps();
-                },
-                onAnswer: (text) => {
-                  answerEl.textContent = text;
-                  runtime.answerChars = (text || "").length;
-                  renderOps();
-                },
-                onAudioChunk: (base64Chunk) => {
-                  if (base64Chunk) {
-                    const chunkBytes = base64ToBytes(base64Chunk);
-                    audioChunks.push(chunkBytes);
-                    runtime.audioChunks += 1;
-                    runtime.audioBytes += chunkBytes.byteLength;
-                    renderOps();
-                  }
-                },
-                onTtsComplete: (mimeType) => {
-                  if (mimeType) outputMimeType = mimeType;
-                  addEvent(`tts:complete mime=${mimeType || "-"}`);
-                },
-                onDone: () => {
-                  if (!audioChunks.length) {
-                    throw new Error("No streamed audio chunks received.");
-                  }
-                  const outBlob = new Blob(audioChunks, { type: outputMimeType || "audio/mpeg" });
-                  setPlayerBlob(outBlob);
-                  runtime.streamCompleted = "yes";
-                  finishRequest("Stream completed");
-                },
-                onError: (message) => {
-                  throw new Error(message || "Unknown stream error.");
-                }
-              });
-            }
-          }
+          await executeStreamRequest(blob, { source: "classic", transport: "classic" });
         } catch (err) {
           failRequest(err);
         }
       };
+
+      livekitConnectBtn.onclick = async () => {
+        try {
+          const room = (livekitRoom.value || "").trim() || "voice-agent-room";
+          const identity = (livekitIdentity.value || "").trim();
+          const body = identity ? { room, identity } : { room };
+          const res = await fetch("/api/livekit/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || "Failed to connect LiveKit.");
+
+          livekitConnected = true;
+          livekitMuted = false;
+          setTransportMode("livekit", `LiveKit (connected:${json.room})`);
+          livekitDisconnectBtn.disabled = false;
+          livekitMuteBtn.disabled = false;
+          livekitMuteBtn.textContent = "Mute";
+          livekitStartTurnBtn.disabled = false;
+          livekitStopTurnBtn.disabled = true;
+          setStatus(`LiveKit token ready for room "${json.room}"`, "ok");
+          addEvent(`livekit:connected room=${json.room} identity=${json.identity}`);
+          updateStepStatuses();
+          renderOps();
+        } catch (err) {
+          setStatus(`LiveKit connect failed: ${err.message}`, "error");
+          addEvent(`livekit:error ${err.message}`);
+          setStepState(step2State, "error", "Error");
+        }
+      };
+
+      livekitDisconnectBtn.onclick = () => {
+        livekitConnected = false;
+        livekitMuted = false;
+        livekitDisconnectBtn.disabled = true;
+        livekitMuteBtn.disabled = true;
+        livekitStartTurnBtn.disabled = true;
+        livekitStopTurnBtn.disabled = true;
+        livekitMuteBtn.textContent = "Mute";
+        setTransportMode("livekit", "LiveKit (not connected)");
+        setStatus("LiveKit disconnected", "ok");
+        addEvent("livekit:disconnected");
+        updateStepStatuses();
+        renderOps();
+      };
+
+      livekitMuteBtn.onclick = () => {
+        if (!livekitConnected) return;
+        livekitMuted = !livekitMuted;
+        livekitMuteBtn.textContent = livekitMuted ? "Unmute" : "Mute";
+        setStatus(livekitMuted ? "LiveKit mic muted (UI state)" : "LiveKit mic unmuted (UI state)", "ok");
+        addEvent(`livekit:mute ${livekitMuted ? "on" : "off"}`);
+      };
+
+      livekitStartTurnBtn.onclick = async () => {
+        try {
+          if (!livekitConnected) throw new Error("Connect LiveKit first.");
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          livekitTurnChunks = [];
+          livekitTurnRecorder = new MediaRecorder(stream);
+          livekitTurnRecorder.ondataavailable = (e) => livekitTurnChunks.push(e.data);
+          livekitTurnRecorder.start();
+          livekitStartTurnBtn.disabled = true;
+          livekitStopTurnBtn.disabled = false;
+          setStatus("LiveKit turn recording started. Click Stop & Ask Agent.", "running");
+          addEvent("livekit:turn_recording_started");
+          setStepState(step2State, "active", "Recording");
+        } catch (err) {
+          setStatus(`LiveKit turn start failed: ${err.message}`, "error");
+          addEvent(`livekit:turn_start_error ${err.message}`);
+          setStepState(step2State, "error", "Error");
+        }
+      };
+
+      livekitStopTurnBtn.onclick = async () => {
+        try {
+          if (!livekitTurnRecorder || livekitTurnRecorder.state !== "recording") {
+            throw new Error("No active LiveKit turn recording.");
+          }
+          const blob = await stopLivekitTurnRecorder();
+          livekitStartTurnBtn.disabled = false;
+          livekitStopTurnBtn.disabled = true;
+          addEvent(`livekit:turn_recording_stopped bytes=${blob.size}`);
+          setStepState(step2State, "done", "Captured");
+          await executeStreamRequest(blob, { source: "livekit", transport: "livekit" });
+        } catch (err) {
+          livekitStartTurnBtn.disabled = !livekitConnected;
+          livekitStopTurnBtn.disabled = true;
+          failRequest(err);
+          setStepState(step2State, "error", "Error");
+        }
+      };
+
+      async function stopLivekitTurnRecorder() {
+        return new Promise((resolve, reject) => {
+          if (!livekitTurnRecorder) {
+            reject(new Error("LiveKit recorder is not initialized."));
+            return;
+          }
+          livekitTurnRecorder.onstop = () => {
+            const outBlob = new Blob(livekitTurnChunks, { type: livekitTurnRecorder.mimeType || "audio/webm" });
+            livekitTurnRecorder.stream.getTracks().forEach((t) => t.stop());
+            livekitTurnRecorder = null;
+            livekitTurnChunks = [];
+            resolve(outBlob);
+          };
+          livekitTurnRecorder.onerror = (event) => {
+            reject(event?.error || new Error("LiveKit recorder error."));
+          };
+          livekitTurnRecorder.stop();
+        });
+      }
+
+      async function executeStreamRequest(blob, options = {}) {
+        const source = options.source || "classic";
+        const transport = options.transport || "classic";
+        beginRequest("stream", transport);
+        setStatus("Starting stream...", "running");
+        transcriptEl.textContent = "";
+        answerEl.textContent = "";
+        searchResultsEl.textContent = "";
+        audioPlayer.removeAttribute("src");
+        setInputMetadata(blob);
+        setStage("connecting_stream");
+        setStepState(step3State, "active", "Running");
+        const form = new FormData();
+        form.append("audio", blob, blob.name || `recording.${mimeToExtension(blob.type)}`);
+        form.append("llmProvider", llmProvider.value);
+        form.append("llmModel", llmModel.value);
+        addEvent(`request:stream source=${source} provider=${llmProvider.value} model=${llmModel.value}`);
+
+        const res = await fetch("/api/agent/stream", { method: "POST", body: form });
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt || `Stream request failed: ${res.status}`);
+        }
+        if (!res.body) {
+          throw new Error("No stream body returned.");
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const audioChunks = [];
+        let outputMimeType = "audio/mpeg";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const segments = buffer.split("\n\n");
+          buffer = segments.pop() || "";
+
+          for (const segment of segments) {
+            if (!runtime.firstEventLatencyMs && runtime.requestStartedAt) {
+              runtime.firstEventLatencyMs = Date.now() - runtime.requestStartedAt;
+            }
+            handleSseSegment(segment, {
+              onStatus: (stage) => {
+                setStage(stage);
+                setStatus(`Streaming: ${stage}`, "running");
+                addEvent(`stage:${stage}`);
+                renderOps();
+              },
+              onTranscript: (text) => {
+                transcriptEl.textContent = text;
+                runtime.transcriptChars = (text || "").length;
+                renderOps();
+              },
+              onSearchResults: (items) => {
+                searchResultsEl.textContent = JSON.stringify(items, null, 2);
+                runtime.searchResultCount = (items || []).length;
+                renderOps();
+              },
+              onAnswer: (text) => {
+                answerEl.textContent = text;
+                runtime.answerChars = (text || "").length;
+                renderOps();
+              },
+              onAudioChunk: (base64Chunk) => {
+                if (base64Chunk) {
+                  const chunkBytes = base64ToBytes(base64Chunk);
+                  audioChunks.push(chunkBytes);
+                  runtime.audioChunks += 1;
+                  runtime.audioBytes += chunkBytes.byteLength;
+                  renderOps();
+                }
+              },
+              onTtsComplete: (mimeType) => {
+                if (mimeType) outputMimeType = mimeType;
+                addEvent(`tts:complete mime=${mimeType || "-"}`);
+              },
+              onDone: () => {
+                if (!audioChunks.length) {
+                  throw new Error("No streamed audio chunks received.");
+                }
+                const outBlob = new Blob(audioChunks, { type: outputMimeType || "audio/mpeg" });
+                setPlayerBlob(outBlob);
+                runtime.streamCompleted = "yes";
+                finishRequest("Stream completed");
+                setStepState(step3State, "done", "Done");
+              },
+              onError: (message) => {
+                throw new Error(message || "Unknown stream error.");
+              }
+            });
+          }
+        }
+      }
 
       function getSelectedAudioBlob() {
         if (audioFile.files[0]) return audioFile.files[0];
@@ -621,9 +838,14 @@
         }
       }
 
-      function beginRequest(mode) {
+      function beginRequest(mode, transport = "classic") {
         const requestId = createRequestId();
         runtime.mode = mode;
+        if (transport === "livekit") {
+          setTransportMode("livekit", livekitConnected ? "LiveKit (connected)" : "LiveKit");
+        } else {
+          setTransportMode("classic", "Classic (HTTP API)");
+        }
         runtime.requestId = requestId;
         runtime.stage = "starting";
         runtime.provider = llmProvider.value;
@@ -649,6 +871,7 @@
         runtime.lastError = "-";
         runtime.events = [];
         addEvent(`request:begin id=${requestId} mode=${mode}`);
+        updateStepStatuses();
         renderOps();
       }
 
@@ -660,6 +883,7 @@
         runtime.estimatedCostUsd = estimateCostUsd(runtime.estimatedTokens);
         setStatus(message, "ok");
         addEvent(`request:done durationMs=${runtime.durationMs}`);
+        updateStepStatuses();
         renderOps();
       }
 
@@ -673,6 +897,8 @@
         runtime.lastError = err?.message || String(err);
         setStatus(`Error: ${runtime.lastError}`, "error");
         addEvent(`request:error ${runtime.lastError}`);
+        setStepState(step3State, "error", "Error");
+        updateStepStatuses();
         renderOps();
       }
 
@@ -718,6 +944,116 @@
         if (tone === "running") statusBanner.classList.add("status-running");
         if (tone === "ok") statusBanner.classList.add("status-ok");
         if (tone === "error") statusBanner.classList.add("status-error");
+      }
+
+      function setTransportMode(mode, label) {
+        runtime.transportMode = mode === "livekit" ? "livekit" : "classic";
+        modeIndicator.classList.remove("mode-classic", "mode-livekit");
+        if (runtime.transportMode === "livekit") {
+          modeIndicator.classList.add("mode-livekit");
+          modeIndicator.textContent = `Transport: ${label || "LiveKit"}`;
+          return;
+        }
+        modeIndicator.classList.add("mode-classic");
+        modeIndicator.textContent = `Transport: ${label || "Classic (HTTP API)"}`;
+      }
+
+      function applyTransportModeUi() {
+        const selected = transportMode.value === "livekit" ? "livekit" : "classic";
+        setStepState(step1State, "done", "Configured");
+        if (selected === "livekit") {
+          step2Heading.innerHTML = `Step 2: Connect and Speak <span id="step2State" class="step-state">Ready</span>`;
+          step3Heading.innerHTML = `Step 3: Agent Processing (automatic) <span id="step3State" class="step-state">Ready</span>`;
+          rebindStepStateElements();
+          renderQuickSteps("livekit");
+          classicControls.classList.add("hidden");
+          livekitControls.classList.remove("hidden");
+          runBtn.disabled = true;
+          streamBtn.disabled = true;
+          setTransportMode("livekit", livekitConnected ? "LiveKit (connected)" : "LiveKit (not connected)");
+          transportHelp.textContent =
+            "LiveKit mode uses Connect + Start Turn/Stop & Ask Agent. Step 3 buttons are intentionally disabled.";
+          addEvent("transport:livekit");
+          updateStepStatuses();
+          renderOps();
+          return;
+        }
+
+        step2Heading.innerHTML = `Step 2: Capture or Upload Audio <span id="step2State" class="step-state">Ready</span>`;
+        step3Heading.innerHTML = `Step 3: Run the Agent Turn <span id="step3State" class="step-state">Ready</span>`;
+        rebindStepStateElements();
+        renderQuickSteps("classic");
+        classicControls.classList.remove("hidden");
+        livekitControls.classList.add("hidden");
+        runBtn.disabled = false;
+        streamBtn.disabled = false;
+        setTransportMode("classic", "Classic (HTTP API)");
+        transportHelp.textContent =
+          "Classic mode uses record/upload + Run Live/Run Once. LiveKit mode uses connect/mute/disconnect controls.";
+        addEvent("transport:classic");
+        updateStepStatuses();
+        renderOps();
+      }
+
+      function setStepState(el, type, text) {
+        if (!el) return;
+        el.classList.remove("step-state-active", "step-state-done", "step-state-blocked", "step-state-error");
+        if (type === "active") el.classList.add("step-state-active");
+        if (type === "done") el.classList.add("step-state-done");
+        if (type === "blocked") el.classList.add("step-state-blocked");
+        if (type === "error") el.classList.add("step-state-error");
+        el.textContent = text;
+      }
+
+      function updateStepStatuses() {
+        setStepState(step1State, "done", "Configured");
+        if (transportMode.value === "livekit") {
+          if (livekitTurnRecorder && livekitTurnRecorder.state === "recording") {
+            setStepState(step2State, "active", "Recording");
+          } else if (livekitConnected) {
+            setStepState(step2State, "done", "Connected");
+          } else {
+            setStepState(step2State, "active", "Connect Needed");
+          }
+          if (runtime.stage === "done") setStepState(step3State, "done", "Done");
+          else if (runtime.stage === "error") setStepState(step3State, "error", "Error");
+          else if (runtime.stage === "starting" || runtime.stage === "connecting_stream" || runtime.stage === "transcribing" || runtime.stage === "searching" || runtime.stage === "answering" || runtime.stage === "synthesizing_audio") {
+            setStepState(step3State, "active", "Running");
+          } else {
+            setStepState(step3State, "done", "Automatic");
+          }
+          return;
+        }
+        setStepState(step2State, recordedBlob || audioFile.files?.[0] ? "done" : "active", recordedBlob || audioFile.files?.[0] ? "Captured" : "Awaiting Audio");
+        if (runtime.stage === "done") setStepState(step3State, "done", "Done");
+        else if (runtime.stage === "error") setStepState(step3State, "error", "Error");
+        else setStepState(step3State, "active", "Ready");
+      }
+
+      function rebindStepStateElements() {
+        step2State = document.getElementById("step2State");
+        step3State = document.getElementById("step3State");
+      }
+
+      function renderQuickSteps(mode) {
+        if (mode === "livekit") {
+          quickStepsList.innerHTML = `
+            <li><strong>Step 1:</strong> Choose <strong>Transport Mode = LiveKit</strong> (realtime session flow).</li>
+            <li><strong>Step 2:</strong> Choose provider/model, click <strong>Connect LiveKit</strong>, then <strong>Start Turn</strong> and <strong>Stop & Ask Agent</strong>.</li>
+            <li><strong>Step 3:</strong> Agent processing runs automatically after you stop turn capture.</li>
+            <li><strong>Step 4:</strong> Review transcript, grounded answer, search evidence, and synthesized output.</li>
+            <li><strong>Step 5:</strong> Use <strong>Observability & Telemetry</strong> for stage timing and event trail.</li>
+          `;
+          return;
+        }
+        quickStepsList.innerHTML = `
+          <li><strong>Step 1:</strong> Choose <strong>Transport Mode = Classic</strong> (request/response flow).</li>
+          <li><strong>Step 2:</strong> Choose an <strong>LLM Provider</strong> and <strong>LLM Model</strong>.</li>
+          <li><strong>Step 3:</strong> Capture user utterance by recording or upload an audio file (auto-stop at 30s, with a 5s warning).</li>
+          <li><strong>Step 4:</strong> Run the turn with <strong>Run Live</strong> (streaming stages) or <strong>Run Once</strong> (single final response).</li>
+          <li><strong>Step 5:</strong> Review transcript, grounded answer, search evidence, and synthesized voice output.</li>
+          <li><strong>Step 6:</strong> Use <strong>Observability & Telemetry</strong> for stage timing, event trail, and runtime details.</li>
+        `;
       }
 
       function setRecordingIndicator(isRecording) {
@@ -787,6 +1123,7 @@
         perfPanel.innerHTML = `
           <div><strong>Request ID:</strong> ${runtime.requestId}</div>
           <div><strong>Mode:</strong> ${runtime.mode}</div>
+          <div><strong>Transport:</strong> ${runtime.transportMode}</div>
           <div><strong>Stage:</strong> ${runtime.stage}</div>
           <div><strong>First Event Latency:</strong> ${runtime.firstEventLatencyMs || 0} ms</div>
           <div><strong>Total Duration:</strong> ${runtime.durationMs} ms</div>
@@ -813,6 +1150,11 @@
           ? runtime.events.join("\n")
           : "No events yet.";
       }
+
+      // Exposed for future LiveKit wiring in this page:
+      // window.setDemoTransportMode("livekit", "LiveKit Realtime")
+      // window.setDemoTransportMode("classic", "Classic (HTTP API)")
+      globalThis.setDemoTransportMode = setTransportMode;
     </script>
   </body>
 </html>
