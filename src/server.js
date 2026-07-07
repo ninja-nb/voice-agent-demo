@@ -1,5 +1,6 @@
 import express from "express";
 import multer from "multer";
+import { AccessToken } from "livekit-server-sdk";
 import { config } from "./config.js";
 import { OpenAiSttProvider } from "./providers/stt/openai.js";
 import { OpenAiLlmProvider } from "./providers/llm/openai.js";
@@ -22,6 +23,50 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/capabilities", (_req, res) => {
   res.json(capabilities);
+});
+
+app.post("/api/livekit/token", async (req, res) => {
+  try {
+    if (!config.livekitUrl || !config.livekitApiKey || !config.livekitApiSecret) {
+      return res.status(503).json({
+        error: "LiveKit is not configured. Set LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET."
+      });
+    }
+
+    const room = String(req.body?.room || config.livekitDefaultRoom).trim();
+    const identity = String(req.body?.identity || `user-${crypto.randomUUID()}`).trim();
+    const name = String(req.body?.name || identity).trim();
+
+    if (!room) {
+      return res.status(400).json({ error: "Field 'room' must not be empty." });
+    }
+    if (!identity) {
+      return res.status(400).json({ error: "Field 'identity' must not be empty." });
+    }
+
+    const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
+      identity,
+      name,
+      ttl: "10m"
+    });
+    token.addGrant({
+      roomJoin: true,
+      room,
+      canPublish: true,
+      canSubscribe: true
+    });
+
+    res.json({
+      url: config.livekitUrl,
+      room,
+      identity,
+      name,
+      token: await token.toJwt()
+    });
+  } catch (error) {
+    console.error("LiveKit token creation failed:", error);
+    res.status(500).json({ error: "Failed to create LiveKit token." });
+  }
 });
 
 app.post("/api/agent/turn", upload.single("audio"), async (req, res) => {

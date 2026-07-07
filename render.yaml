@@ -16,6 +16,14 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: LIVEKIT_DEFAULT_ROOM
+        value: voice-agent-room
       - key: DEFAULT_LLM_PROVIDER
         value: openai
       - key: DEFAULT_LLM_MODEL
