@@ -417,7 +417,7 @@
 
       startBtn.onclick = async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder = createAudioRecorder(stream);
         recordedBlob = null;
         updateDownloadRecordingButton();
         chunks = [];
@@ -428,6 +428,7 @@
           recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
           updateDownloadRecordingButton();
           setStatus("Recording captured. Proceed to Step 3.", "ok");
+          addEvent(`recording:mime ${recordedBlob.type || "unknown"}`);
           addEvent(`recording:captured bytes=${recordedBlob.size}`);
           updateStepStatuses();
         };
@@ -587,7 +588,7 @@
           if (!livekitConnected) throw new Error("Connect LiveKit first.");
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           livekitTurnChunks = [];
-          livekitTurnRecorder = new MediaRecorder(stream);
+          livekitTurnRecorder = createAudioRecorder(stream);
           livekitTurnRecorder.ondataavailable = (e) => livekitTurnChunks.push(e.data);
           livekitTurnRecorder.start();
           livekitStartTurnBtn.disabled = true;
@@ -632,6 +633,7 @@
             livekitTurnRecorder.stream.getTracks().forEach((t) => t.stop());
             livekitTurnRecorder = null;
             livekitTurnChunks = [];
+            addEvent(`livekit:turn_mime ${outBlob.type || "unknown"}`);
             resolve(outBlob);
           };
           livekitTurnRecorder.onerror = (event) => {
@@ -1097,8 +1099,25 @@
         if (mimeType.includes("wav")) return "wav";
         if (mimeType.includes("mpeg") || mimeType.includes("mp3")) return "mp3";
         if (mimeType.includes("ogg")) return "ogg";
+        if (mimeType.includes("mp4") || mimeType.includes("m4a")) return "m4a";
         if (mimeType.includes("webm")) return "webm";
         return "bin";
+      }
+
+      function createAudioRecorder(stream) {
+        const preferredMimeTypes = [
+          "audio/webm;codecs=opus",
+          "audio/webm",
+          "audio/mp4",
+          "audio/ogg;codecs=opus",
+          "audio/ogg"
+        ];
+        for (const mimeType of preferredMimeTypes) {
+          if (globalThis.MediaRecorder?.isTypeSupported?.(mimeType)) {
+            return new MediaRecorder(stream, { mimeType });
+          }
+        }
+        return new MediaRecorder(stream);
       }
 
       function addEvent(entry) {

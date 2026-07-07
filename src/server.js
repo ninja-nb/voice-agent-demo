@@ -16,6 +16,7 @@ import { normalizeError } from "./utils/errors.js";
 
 const ALLOWED_AUDIO_MIME_TYPES = new Set([
   "audio/webm",
+  "video/webm",
   "audio/wav",
   "audio/x-wav",
   "audio/mpeg",
