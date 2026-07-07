@@ -1,0 +1,17 @@
+{
+  "name": "audio-ai-agent-sample",
+  "version": "1.0.0",
+  "description": "Sample voice AI agent with STT, search, LLM, and TTS adapters.",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.57.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.2",
+    "openai": "^5.10.2"
+  }
+}

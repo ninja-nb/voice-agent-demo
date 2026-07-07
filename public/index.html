@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voice AI Agent Sample</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+      .row { margin: 0.75rem 0; }
+      button { margin-right: 0.5rem; }
+      textarea { width: 100%; min-height: 110px; }
+      .card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+      .muted { color: #666; font-size: 0.9rem; }
+      pre { white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>Voice AI Agent Sample</h1>
+    <p class="muted">Record audio, transcribe, search, get AI answer, and hear TTS output.</p>
+
+    <div class="card">
+      <div class="row">
+        <label for="llmProvider">LLM Provider:</label>
+        <select id="llmProvider">
+          <option value="openai">openai</option>
+          <option value="anthropic">anthropic</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <button id="startBtn">Start Recording</button>
+        <button id="stopBtn" disabled>Stop Recording</button>
+        <input type="file" id="audioFile" accept="audio/*" />
+      </div>
+
+      <div class="row">
+        <button id="runBtn">Run Agent Turn</button>
+        <button id="streamBtn">Run Agent Stream</button>
+      </div>
+
+      <div class="row muted" id="status">Idle</div>
+    </div>
+
+    <div class="card">
+      <h3>Transcript</h3>
+      <pre id="transcript"></pre>
+      <h3>Answer</h3>
+      <pre id="answer"></pre>
+      <h3>Search Results</h3>
+      <pre id="searchResults"></pre>
+      <h3>Audio Output</h3>
+      <audio id="audioPlayer" controls></audio>
+    </div>
+
+    <script>
+      let mediaRecorder;
+      let chunks = [];
+      let recordedBlob = null;
+
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const runBtn = document.getElementById("runBtn");
+      const streamBtn = document.getElementById("streamBtn");
+      const audioFile = document.getElementById("audioFile");
+      const statusEl = document.getElementById("status");
+      const transcriptEl = document.getElementById("transcript");
+      const answerEl = document.getElementById("answer");
+      const searchResultsEl = document.getElementById("searchResults");
+      const audioPlayer = document.getElementById("audioPlayer");
+      const llmProvider = document.getElementById("llmProvider");
+
+      startBtn.onclick = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        chunks = [];
+        mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
+          statusEl.textContent = "Recording captured";
+        };
+        mediaRecorder.start();
+        statusEl.textContent = "Recording...";
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      };
+
+      stopBtn.onclick = () => {
+        mediaRecorder.stop();
+        stopBtn.disabled = true;
+        startBtn.disabled = false;
+      };
+
+      runBtn.onclick = async () => {
+        try {
+          statusEl.textContent = "Uploading and processing...";
+          transcriptEl.textContent = "";
+          answerEl.textContent = "";
+          searchResultsEl.textContent = "";
+          audioPlayer.removeAttribute("src");
+
+          let blob = null;
+          if (audioFile.files[0]) {
+            blob = audioFile.files[0];
+          } else if (recordedBlob) {
+            blob = recordedBlob;
+          } else {
+            throw new Error("Please record audio or choose a file.");
+          }
+
+          const form = new FormData();
+          form.append("audio", blob, blob.name || "recording.webm");
+          form.append("llmProvider", llmProvider.value);
+
+          const res = await fetch("/api/agent/turn", { method: "POST", body: form });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || "Request failed");
+
+          transcriptEl.textContent = json.transcript;
+          answerEl.textContent = json.answer;
+          searchResultsEl.textContent = JSON.stringify(json.searchResults, null, 2);
+
+          const binary = atob(json.audioBase64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const outBlob = new Blob([bytes], { type: json.audioMimeType || "audio/mpeg" });
+          audioPlayer.src = URL.createObjectURL(outBlob);
+
+          statusEl.textContent = "Done";
+        } catch (err) {
+          statusEl.textContent = `Error: ${err.message}`;
+        }
+      };
+
+      streamBtn.onclick = async () => {
+        try {
+          statusEl.textContent = "Starting stream...";
+          transcriptEl.textContent = "";
+          answerEl.textContent = "";
+          searchResultsEl.textContent = "";
+          audioPlayer.removeAttribute("src");
+
+          const blob = getSelectedAudioBlob();
+          const form = new FormData();
+          form.append("audio", blob, blob.name || "recording.webm");
+          form.append("llmProvider", llmProvider.value);
+
+          const res = await fetch("/api/agent/stream", { method: "POST", body: form });
+          if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(txt || `Stream request failed: ${res.status}`);
+          }
+          if (!res.body) {
+            throw new Error("No stream body returned.");
+          }
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          const audioChunks = [];
+          let outputMimeType = "audio/mpeg";
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const segments = buffer.split("\n\n");
+            buffer = segments.pop() || "";
+
+            for (const segment of segments) {
+              handleSseSegment(segment, {
+                onStatus: (stage) => {
+                  statusEl.textContent = `Streaming: ${stage}`;
+                },
+                onTranscript: (text) => {
+                  transcriptEl.textContent = text;
+                },
+                onSearchResults: (items) => {
+                  searchResultsEl.textContent = JSON.stringify(items, null, 2);
+                },
+                onAnswer: (text) => {
+                  answerEl.textContent = text;
+                },
+                onAudioChunk: (base64Chunk) => {
+                  if (base64Chunk) {
+                    audioChunks.push(base64ToBytes(base64Chunk));
+                  }
+                },
+                onTtsComplete: (mimeType) => {
+                  if (mimeType) outputMimeType = mimeType;
+                },
+                onDone: () => {
+                  if (!audioChunks.length) {
+                    throw new Error("No streamed audio chunks received.");
+                  }
+                  const outBlob = new Blob(audioChunks, { type: outputMimeType || "audio/mpeg" });
+                  audioPlayer.src = URL.createObjectURL(outBlob);
+                  statusEl.textContent = "Stream done";
+                },
+                onError: (message) => {
+                  throw new Error(message || "Unknown stream error.");
+                }
+              });
+            }
+          }
+        } catch (err) {
+          statusEl.textContent = `Error: ${err.message}`;
+        }
+      };
+
+      function getSelectedAudioBlob() {
+        if (audioFile.files[0]) return audioFile.files[0];
+        if (recordedBlob) return recordedBlob;
+        throw new Error("Please record audio or choose a file.");
+      }
+
+      function base64ToBlob(base64Data, mimeType) {
+        return new Blob([base64ToBytes(base64Data)], { type: mimeType || "audio/mpeg" });
+      }
+
+      function base64ToBytes(base64Data) {
+        const binary = atob(base64Data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+      }
+
+      function handleSseSegment(segment, handlers) {
+        const lines = segment.split("\n");
+        let eventName = "";
+        let dataText = "";
+
+        for (const line of lines) {
+          if (line.startsWith("event:")) eventName = line.slice(6).trim();
+          if (line.startsWith("data:")) dataText += line.slice(5).trim();
+        }
+        if (!eventName || !dataText) return;
+
+        const payload = JSON.parse(dataText);
+        if (eventName === "status") handlers.onStatus(payload.stage);
+        if (eventName === "transcript") handlers.onTranscript(payload.text);
+        if (eventName === "search_results") handlers.onSearchResults(payload.items || []);
+        if (eventName === "answer") handlers.onAnswer(payload.text || "");
+        if (eventName === "tts_audio_chunk") handlers.onAudioChunk(payload.dataBase64 || "");
+        if (eventName === "tts_complete") handlers.onTtsComplete(payload.mimeType);
+        if (eventName === "done") handlers.onDone();
+        if (eventName === "error") handlers.onError(payload.message);
+      }
+    </script>
+  </body>
+</html>
