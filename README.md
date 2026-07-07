@@ -38,11 +38,18 @@ Sample project that accepts audio input, transcribes it, runs search-backed AI a
      - `LIVEKIT_API_SECRET`
      - `LIVEKIT_DEFAULT_ROOM=voice-agent-room` (optional default room)
    - Optional model defaults:
-     - `DEFAULT_OPENAI_MODEL=gpt-4.1-mini`
+  - `DEFAULT_OPENAI_MODEL=gpt-3.5-turbo`
      - `DEFAULT_ANTHROPIC_MODEL=claude-haiku-4-5-20251001` (cheaper Anthropic option)
+- OpenAI model policy controls:
+  - `OPENAI_SUPPORTED_MODELS` to list known models (can include disabled models)
+  - `OPENAI_ENABLED_MODELS` to enforce cost-safe models exposed to runtime
+  - Requests to disabled models return explicit `MODEL_DISABLED` errors.
    - Anthropic model gating:
      - `ANTHROPIC_ENABLED_MODELS=claude-haiku-4-5-20251001`
      - Leave empty to hide Anthropic from UI and API capabilities.
+- Reliability guardrails (timeouts/retries):
+  - `STT_TIMEOUT_MS`, `SEARCH_TIMEOUT_MS`, `LLM_TIMEOUT_MS`, `TTS_TIMEOUT_MS`
+  - `STT_RETRIES`, `SEARCH_RETRIES`, `LLM_RETRIES`, `TTS_RETRIES`
 
 4. Start app:
 
@@ -67,6 +74,7 @@ Response:
 - search results
 - AI answer
 - base64 encoded audio output (`audioBase64`)
+- observability metadata (`requestId`, per-stage latency, retries, total duration)
 
 ### `POST /api/agent/stream`
 
@@ -106,6 +114,7 @@ Response:
 - `/api/agent/turn` returns full output in one payload.
 - `/api/agent/stream` streams pipeline updates and audio chunks using SSE.
 - Provider-specific default models are supported so Anthropic does not receive OpenAI model IDs.
+- `/api/metrics` exposes in-memory failure counters by error code.
 
 ## Deploy on Render (Free Tier)
 
