@@ -85,6 +85,7 @@
       }
       .guide-list { margin: 0.5rem 0 0 1rem; padding: 0; }
       .guide-list li { margin-bottom: 0.35rem; }
+      .playback-fallback { margin-top: 0.5rem; }
     </style>
   </head>
   <body>
@@ -176,6 +177,9 @@
       <h3>Audio Output</h3>
       <p class="muted">TTS adapter output for voice response playback.</p>
       <audio id="audioPlayer" controls></audio>
+      <div class="playback-fallback">
+        <button id="playResponseBtn" hidden>Tap to Play Response</button>
+      </div>
     </div>
 
     <div class="card">
@@ -236,6 +240,7 @@
       const answerEl = document.getElementById("answer");
       const searchResultsEl = document.getElementById("searchResults");
       const audioPlayer = document.getElementById("audioPlayer");
+      const playResponseBtn = document.getElementById("playResponseBtn");
       const statusBanner = document.getElementById("statusBanner");
       const perfPanel = document.getElementById("perfPanel");
       const debugPanel = document.getElementById("debugPanel");
@@ -282,6 +287,17 @@
         addEvent("audio:error");
         renderOps();
       });
+      playResponseBtn.onclick = async () => {
+        try {
+          await audioPlayer.play();
+          playResponseBtn.hidden = true;
+          setStatus("Playback started", "ok");
+          addEvent("audio:playback_started_manual");
+        } catch (_err) {
+          setStatus("Playback blocked. Tap play in the audio control.", "error");
+          addEvent("audio:playback_manual_failed");
+        }
+      };
       llmProvider.addEventListener("change", populateModelOptions);
       audioFile.addEventListener("change", () => {
         if (audioFile.files?.[0]) {
@@ -552,9 +568,16 @@
         currentAudioUrl = URL.createObjectURL(blob);
         audioPlayer.src = currentAudioUrl;
         audioPlayer.load();
+        playResponseBtn.hidden = true;
 
-        // Best effort: if browser allows, start playback automatically.
-        audioPlayer.play().catch(() => {});
+        // Best effort autoplay; iOS Safari may block this without a direct gesture.
+        audioPlayer.play().then(() => {
+          addEvent("audio:autoplay_started");
+        }).catch(() => {
+          playResponseBtn.hidden = false;
+          setStatus("Audio ready. Tap 'Tap to Play Response' to start playback on this device.", "ok");
+          addEvent("audio:autoplay_blocked");
+        });
         addEvent(`audio:ready bytes=${blob.size}`);
         renderOps();
       }
