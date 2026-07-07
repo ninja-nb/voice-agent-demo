@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: audio-ai-agent-sample
+    name: voice-agent-demo
     runtime: node
     plan: free
     autoDeploy: true

@@ -6,6 +6,42 @@ Reference voice-agent demo that accepts audio input, transcribes speech, retriev
 
 - Full design/architecture document: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
+### High-Level Architecture
+
+```mermaid
+flowchart TD
+    userClient[Web Client] --> transport{Transport Mode}
+
+    transport -->|Classic API| classicApi[Agent API]
+    transport -->|LiveKit UI Flow| livekitToken[POST /api/livekit/token]
+
+    classicApi --> pipeline[STT -> Search -> LLM -> TTS]
+    livekitToken --> livekitTurn[LiveKit turn capture in UI]
+    livekitTurn --> streamApi[POST /api/agent/stream]
+    streamApi --> pipeline
+
+    pipeline --> outputs[Transcript + Answer + Audio]
+    outputs --> userClient
+
+    classDef start fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2E6B;
+    classDef decision fill:#FFF4E5,stroke:#FB8C00,stroke-width:2px,color:#6B3A00;
+    classDef classic fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20;
+    classDef livekit fill:#F3E5F5,stroke:#8E24AA,stroke-width:2px,color:#4A148C;
+    classDef api fill:#E0F7FA,stroke:#00838F,stroke-width:2px,color:#004D40;
+    classDef pipelineStyle fill:#FFF8E1,stroke:#F9A825,stroke-width:2px,color:#5D4037;
+    classDef output fill:#EDE7F6,stroke:#5E35B1,stroke-width:2px,color:#311B92;
+
+    class userClient start;
+    class transport decision;
+    class classicApi classic;
+    class livekitToken,livekitTurn livekit;
+    class streamApi api;
+    class pipeline pipelineStyle;
+    class outputs output;
+```
+
+For full component and sequence diagrams (including the LiveKit target architecture), see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 ## Features
 
 - Audio input from browser recording or uploaded file.

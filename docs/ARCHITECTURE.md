@@ -33,6 +33,18 @@ flowchart TD
     answerText --> ttsProvider[TextToSpeechProvider]
     ttsProvider --> audioOut[AudioOutput]
     audioOut --> userClient
+
+    classDef start fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2E6B;
+    classDef api fill:#E0F7FA,stroke:#00838F,stroke-width:2px,color:#004D40;
+    classDef provider fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20;
+    classDef artifact fill:#FFF8E1,stroke:#F9A825,stroke-width:2px,color:#5D4037;
+    classDef output fill:#EDE7F6,stroke:#5E35B1,stroke-width:2px,color:#311B92;
+
+    class userClient start;
+    class agentApi api;
+    class sttProvider,searchTool,llmProvider,ttsProvider provider;
+    class transcript,contextResults,answerText artifact;
+    class audioOut output;
 ```
 
 ## 4) Components
@@ -257,6 +269,18 @@ flowchart TD
     lkWorker -->|Publish synthesized audio| lkRoom
     lkRoom --> audioOut
     audioOut --> userClient
+
+    classDef start fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2E6B;
+    classDef api fill:#E0F7FA,stroke:#00838F,stroke-width:2px,color:#004D40;
+    classDef livekit fill:#F3E5F5,stroke:#8E24AA,stroke-width:2px,color:#4A148C;
+    classDef provider fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20;
+    classDef output fill:#EDE7F6,stroke:#5E35B1,stroke-width:2px,color:#311B92;
+
+    class userClient start;
+    class appApi,tokenApi api;
+    class lkRoom,lkWorker livekit;
+    class sttProvider,searchTool,llmProvider,ttsProvider provider;
+    class audioOut output;
 ```
 
 ### LiveKit session sequence
