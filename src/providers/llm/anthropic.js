@@ -19,7 +19,7 @@ export class AnthropicLlmProvider extends LlmProvider {
       try {
         const res = await this.client.messages.create({
           model,
-          max_tokens: 700,
+          max_tokens: 250,
           messages: [{ role: "user", content: prompt }]
         });
         const first = res.content.find((c) => c.type === "text");
@@ -50,6 +50,9 @@ function buildPrompt(question, searchResults) {
   return [
     "You are a helpful assistant.",
     "Use provided context to answer accurately and cite source numbers like [1], [2].",
+    "Keep the response concise for voice playback cost optimization.",
+    "Use 2-4 short sentences or up to 4 bullet points.",
+    "Avoid filler, repetition, long disclaimers, and unnecessary detail.",
     "",
     `Question: ${question}`,
     "",

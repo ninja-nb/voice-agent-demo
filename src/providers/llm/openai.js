@@ -28,6 +28,9 @@ function buildPrompt(question, searchResults) {
   return [
     "You are a helpful assistant.",
     "Answer the user's question using search context when relevant.",
+    "Keep the response concise for voice playback cost optimization.",
+    "Use 2-4 short sentences or up to 4 bullet points.",
+    "Avoid filler, repetition, long disclaimers, and unnecessary detail.",
     "If context is insufficient, say what is missing.",
     "",
     `Question: ${question}`,
