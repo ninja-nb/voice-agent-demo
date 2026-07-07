@@ -15,6 +15,30 @@
       .button-group { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
       .button-help { margin-top: 0.4rem; }
       .button-help span { display: inline-block; margin-right: 1rem; }
+      .workflow-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 0.75rem;
+      }
+      .workflow-step {
+        border: 1px solid #e3e3e3;
+        border-radius: 8px;
+        padding: 0.75rem;
+        background: #fcfcfc;
+      }
+      .workflow-step h4 {
+        margin: 0 0 0.5rem 0;
+        font-size: 0.98rem;
+      }
+      .workflow-step label {
+        display: block;
+        margin: 0.4rem 0 0.2rem 0;
+        font-weight: 600;
+      }
+      .workflow-step select,
+      .workflow-step input[type="file"] {
+        width: 100%;
+      }
       .status-banner {
         margin-top: 0.75rem;
         padding: 0.7rem 0.9rem;
@@ -84,38 +108,46 @@
     </div>
 
     <div class="card">
-      <div class="row">
-        <label for="llmProvider">LLM Provider:</label>
-        <select id="llmProvider">
-          <option value="openai">openai</option>
-          <option value="anthropic">anthropic</option>
-        </select>
-      </div>
+      <h3>Workflow Controls</h3>
+      <p class="muted">Follow Step 1 -> Step 2 -> Step 3 for a cleaner demo flow.</p>
 
-      <div class="row">
-        <label for="llmModel">LLM Model:</label>
-        <select id="llmModel"></select>
-      </div>
-
-      <div class="row">
-        <button id="startBtn">Start Recording</button>
-        <button id="stopBtn" disabled>Stop Recording</button>
-        <button id="downloadRecordingBtn" disabled>Download Recording</button>
-        <input type="file" id="audioFile" accept="audio/*" />
-      </div>
-
-      <div class="row">
-        <div class="button-group">
-          <button id="streamBtn" title="Runs pipeline with live stage updates and streamed audio chunks.">
-            Run Live (Streaming Orchestration)
-          </button>
-          <button id="runBtn" title="Runs full pipeline and returns one final response payload.">
-            Run Once (Synchronous Agent Turn)
-          </button>
+      <div class="workflow-grid">
+        <div class="workflow-step">
+          <h4>Step 1: Choose Model Setup</h4>
+          <label for="llmProvider">LLM Provider</label>
+          <select id="llmProvider">
+            <option value="openai">openai</option>
+            <option value="anthropic">anthropic</option>
+          </select>
+          <label for="llmModel">LLM Model</label>
+          <select id="llmModel"></select>
         </div>
-        <div class="muted button-help">
-          <span><strong>Run Once:</strong> executes one complete orchestrated turn and returns final artifacts.</span>
-          <span><strong>Run Live:</strong> streams stage-by-stage agent events (`transcribing`, `searching`, `answering`) during execution.</span>
+
+        <div class="workflow-step">
+          <h4>Step 2: Capture or Upload Audio</h4>
+          <div class="button-group">
+            <button id="startBtn">Start Recording</button>
+            <button id="stopBtn" disabled>Stop Recording</button>
+            <button id="downloadRecordingBtn" disabled>Download Recording</button>
+          </div>
+          <label for="audioFile">Upload Audio File</label>
+          <input type="file" id="audioFile" accept="audio/*" />
+        </div>
+
+        <div class="workflow-step">
+          <h4>Step 3: Run the Agent Turn</h4>
+          <div class="button-group">
+            <button id="streamBtn" title="Runs pipeline with live stage updates and streamed audio chunks.">
+              Run Live (Streaming Orchestration)
+            </button>
+            <button id="runBtn" title="Runs full pipeline and returns one final response payload.">
+              Run Once (Synchronous Agent Turn)
+            </button>
+          </div>
+          <div class="muted button-help">
+            <span><strong>Run Live:</strong> streams stage-by-stage agent events (`transcribing`, `searching`, `answering`).</span>
+            <span><strong>Run Once:</strong> returns one final response payload after orchestration completes.</span>
+          </div>
         </div>
       </div>
 
@@ -185,7 +217,7 @@
       let recordingWarningTimer = null;
       let recordingElapsedTimer = null;
       let recordingStartedAt = null;
-      const RECORDING_AUTO_STOP_MS = 30 * 1000;
+      const RECORDING_AUTO_STOP_MS = 45 * 1000;
       const RECORDING_WARNING_MS = 5 * 1000;
 
       const startBtn = document.getElementById("startBtn");
@@ -246,6 +278,12 @@
         renderOps();
       });
       llmProvider.addEventListener("change", populateModelOptions);
+      audioFile.addEventListener("change", () => {
+        if (audioFile.files?.[0]) {
+          setStatus("Audio file selected. Proceed to Step 3: Run Live or Run Once.", "ok");
+          addEvent(`audio:file_selected bytes=${audioFile.files[0].size}`);
+        }
+      });
       downloadRecordingBtn.onclick = () => {
         if (!recordedBlob) return;
         const ext = mimeToExtension(recordedBlob.type);
@@ -273,7 +311,7 @@
           clearRecordingTimers();
           recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
           updateDownloadRecordingButton();
-          setStatus("Recording captured, Run Live/Run Once to process", "ok");
+          setStatus("Recording captured. Proceed to Step 3: Run Live or Run Once.", "ok");
           addEvent(`recording:captured bytes=${recordedBlob.size}`);
         };
         mediaRecorder.start();
@@ -293,7 +331,7 @@
           }
         }, RECORDING_AUTO_STOP_MS);
         setRecordingIndicator(true);
-        setStatus("Recording in progress...", "running");
+        setStatus("Step 2 in progress: recording audio...", "running");
         addEvent("recording:started");
         startBtn.disabled = true;
         stopBtn.disabled = false;
@@ -330,7 +368,7 @@
           setStage("requesting");
 
           const form = new FormData();
-          form.append("audio", blob, blob.name || "recording.webm");
+          form.append("audio", blob, blob.name || `recording.${mimeToExtension(blob.type)}`);
           form.append("llmProvider", llmProvider.value);
           form.append("llmModel", llmModel.value);
           addEvent(`request:single provider=${llmProvider.value} model=${llmModel.value}`);
@@ -376,7 +414,7 @@
           setInputMetadata(blob);
           setStage("connecting_stream");
           const form = new FormData();
-          form.append("audio", blob, blob.name || "recording.webm");
+          form.append("audio", blob, blob.name || `recording.${mimeToExtension(blob.type)}`);
           form.append("llmProvider", llmProvider.value);
           form.append("llmModel", llmModel.value);
           addEvent(`request:stream provider=${llmProvider.value} model=${llmModel.value}`);

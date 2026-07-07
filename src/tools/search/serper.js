@@ -23,7 +23,7 @@ export class SerperSearchTool extends SearchTool {
     }
 
     const json = await res.json();
-    return (json.organic || []).slice(0, 5).map((r) => ({
+    return (json.organic || []).slice(0, 3).map((r) => ({
       title: r.title || "Untitled",
       link: r.link || "",
       snippet: r.snippet || ""

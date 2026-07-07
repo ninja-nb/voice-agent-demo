@@ -26,10 +26,16 @@ export class OpenAiSttProvider extends SpeechToTextProvider {
 }
 
 function extFromMime(mimeType) {
+  if (!mimeType) return "webm";
+  if (mimeType.includes("mp4")) return "mp4";
+  if (mimeType.includes("m4a")) return "m4a";
+  if (mimeType.includes("x-m4a")) return "m4a";
+  if (mimeType.includes("aac")) return "aac";
+  if (mimeType.includes("quicktime")) return "mov";
   if (mimeType.includes("wav")) return "wav";
   if (mimeType.includes("mp3")) return "mp3";
   if (mimeType.includes("mpeg")) return "mp3";
   if (mimeType.includes("ogg")) return "ogg";
   if (mimeType.includes("webm")) return "webm";
-  return "bin";
+  return "webm";
 }
