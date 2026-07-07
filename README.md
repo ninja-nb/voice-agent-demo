@@ -1,6 +1,6 @@
-# Voice AI Agent Sample
+# Voice AI Agent Demo (Reliability + Observability)
 
-Sample project that accepts audio input, transcribes it, runs search-backed AI answering, and returns synthesized speech.
+Reference voice-agent demo that accepts audio input, transcribes speech, retrieves web context, generates an answer, and returns synthesized audio with production-style guardrails.
 
 ## Design and Architecture
 
@@ -13,6 +13,11 @@ Sample project that accepts audio input, transcribes it, runs search-backed AI a
 - Search tool adapter (`Serper` web search).
 - Pluggable LLM adapters (`OpenAI`, `Anthropic`).
 - Third-party TTS (`OpenAI`).
+- Per-stage reliability guardrails (timeouts + retries).
+- Structured stage error codes (for debugging and incident triage).
+- Request-level observability metadata (latencies, retries, total duration, request ID).
+- In-memory failure counters via `/api/metrics`.
+- Audio MIME allowlist validation.
 
 ## Quick Start
 
@@ -28,7 +33,7 @@ Sample project that accepts audio input, transcribes it, runs search-backed AI a
    cp .env.example .env
    ```
 
-3. Set keys in `.env`:
+3. Configure `.env`:
    - `OPENAI_API_KEY` (required for STT + TTS + OpenAI LLM)
    - `SERPER_API_KEY` (optional but recommended for live search)
    - `ANTHROPIC_API_KEY` (needed only if selecting anthropic provider)
@@ -37,19 +42,20 @@ Sample project that accepts audio input, transcribes it, runs search-backed AI a
      - `LIVEKIT_API_KEY`
      - `LIVEKIT_API_SECRET`
      - `LIVEKIT_DEFAULT_ROOM=voice-agent-room` (optional default room)
-   - Optional model defaults:
-  - `DEFAULT_OPENAI_MODEL=gpt-3.5-turbo`
-     - `DEFAULT_ANTHROPIC_MODEL=claude-haiku-4-5-20251001` (cheaper Anthropic option)
-- OpenAI model policy controls:
-  - `OPENAI_SUPPORTED_MODELS` to list known models (can include disabled models)
-  - `OPENAI_ENABLED_MODELS` to enforce cost-safe models exposed to runtime
-  - Requests to disabled models return explicit `MODEL_DISABLED` errors.
+   - Model defaults:
+     - `DEFAULT_LLM_PROVIDER=openai`
+     - `DEFAULT_OPENAI_MODEL=gpt-3.5-turbo` (cost-safe default)
+     - `DEFAULT_ANTHROPIC_MODEL=claude-haiku-4-5-20251001`
+   - OpenAI model policy:
+     - `OPENAI_SUPPORTED_MODELS` can include modern models that are known but disabled.
+     - `OPENAI_ENABLED_MODELS` controls models allowed at runtime.
+     - Disabled model selections return explicit `MODEL_DISABLED` errors (no silent downgrade).
    - Anthropic model gating:
      - `ANTHROPIC_ENABLED_MODELS=claude-haiku-4-5-20251001`
      - Leave empty to hide Anthropic from UI and API capabilities.
-- Reliability guardrails (timeouts/retries):
-  - `STT_TIMEOUT_MS`, `SEARCH_TIMEOUT_MS`, `LLM_TIMEOUT_MS`, `TTS_TIMEOUT_MS`
-  - `STT_RETRIES`, `SEARCH_RETRIES`, `LLM_RETRIES`, `TTS_RETRIES`
+   - Reliability controls:
+     - Timeouts: `STT_TIMEOUT_MS`, `SEARCH_TIMEOUT_MS`, `LLM_TIMEOUT_MS`, `TTS_TIMEOUT_MS`
+     - Retries: `STT_RETRIES`, `SEARCH_RETRIES`, `LLM_RETRIES`, `TTS_RETRIES`
 
 4. Start app:
 
@@ -58,6 +64,12 @@ Sample project that accepts audio input, transcribes it, runs search-backed AI a
    ```
 
 5. Open [http://localhost:3000](http://localhost:3000)
+
+6. Run smoke tests:
+
+   ```bash
+   npm test
+   ```
 
 ## API
 
@@ -70,11 +82,13 @@ Sample project that accepts audio input, transcribes it, runs search-backed AI a
 - `ttsVoice`: tts voice override (optional)
 
 Response:
+- `requestId`
 - transcript text
 - search results
 - AI answer
 - base64 encoded audio output (`audioBase64`)
-- observability metadata (`requestId`, per-stage latency, retries, total duration)
+- observability metadata (`stageLatencyMs`, `retriesByStage`, `totalMs`)
+- structured error responses with `code` and `stage`
 
 ### `POST /api/agent/stream`
 
@@ -91,7 +105,8 @@ Response stream:
 - `answer`
 - repeated `tts_audio_chunk` events (base64 audio chunks)
 - `tts_complete`
-- `done`
+- `done` (includes `requestId` + observability)
+- `error` (includes structured `code` and `stage`)
 
 ### `POST /api/livekit/token`
 
@@ -109,12 +124,22 @@ Response:
 - `name`
 - `token`
 
+### `GET /api/metrics`
+
+Returns in-memory failure counters grouped by structured error code.
+
+Example:
+- `failureCounters.STT_TIMEOUT`
+- `failureCounters.SEARCH_5XX`
+- `failureCounters.MODEL_DISABLED`
+
 ## Notes
 
 - `/api/agent/turn` returns full output in one payload.
 - `/api/agent/stream` streams pipeline updates and audio chunks using SSE.
 - Provider-specific default models are supported so Anthropic does not receive OpenAI model IDs.
 - `/api/metrics` exposes in-memory failure counters by error code.
+- Allowed input MIME types are validated (unsupported types return `UNSUPPORTED_AUDIO_MIME`, HTTP 415).
 
 ## Deploy on Render (Free Tier)
 
