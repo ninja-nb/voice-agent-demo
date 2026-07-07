@@ -99,11 +99,11 @@
       </p>
       <h3>Quick Steps</h3>
       <ol class="guide-list">
-        <li>Select an <strong>LLM Provider</strong> and <strong>Model</strong> from available capability options.</li>
-        <li>Capture user utterance by recording (<strong>Start Recording</strong> -> <strong>Stop Recording</strong>) or upload audio.</li>
-        <li>Use <strong>Run Once</strong> for a full agent turn response, or <strong>Run Live</strong> to observe streaming stage events.</li>
-        <li>Review transcript, grounded answer, search evidence, and synthesized voice output.</li>
-        <li>Use <strong>Observability & Telemetry</strong> for orchestration visibility (stage, duration, chunks, event trail).</li>
+        <li><strong>Step 1:</strong> Choose an <strong>LLM Provider</strong> and <strong>LLM Model</strong>.</li>
+        <li><strong>Step 2:</strong> Capture user utterance by recording or upload an audio file (auto-stop at 30s, with a 5s warning).</li>
+        <li><strong>Step 3:</strong> Run the turn with <strong>Run Live</strong> (streaming stages) or <strong>Run Once</strong> (single final response).</li>
+        <li><strong>Step 4:</strong> Review transcript, grounded answer, search evidence, and synthesized voice output.</li>
+        <li><strong>Step 5:</strong> Use <strong>Observability & Telemetry</strong> for stage timing, event trail, and runtime details.</li>
       </ol>
     </div>
 
@@ -162,6 +162,8 @@
     </div>
 
     <div class="card">
+      <h3>Step 4: Results</h3>
+      <p class="muted">Outputs from the completed agent turn.</p>
       <h3>Transcript</h3>
       <p class="muted">STT adapter output from user utterance.</p>
       <pre id="transcript"></pre>
@@ -177,7 +179,7 @@
     </div>
 
     <div class="card">
-      <h3>Observability & Telemetry</h3>
+      <h3>Step 5: Observability & Telemetry</h3>
       <p class="muted">Live orchestration diagnostics: runtime stages, latency, chunking, and event-level telemetry.</p>
       <div class="ops-grid">
         <div>
@@ -194,7 +196,7 @@
     </div>
 
     <div class="card">
-      <h3>Prototype Scope: Assumptions & Gaps</h3>
+      <h3>Scope: Assumptions & Future Improvements</h3>
       <p class="muted">
         This is a prototype for architecture demonstration, not a production deployment.
       </p>
@@ -206,6 +208,9 @@
         <li><strong>Evaluation Focus:</strong> Resiliency patterns including timeouts, retries, circuit breaking, and fallback routing.</li>
         <li><strong>Evaluation Focus:</strong> Vector database-backed retrieval and conversation memory capabilities.</li>
         <li><strong>Evaluation Focus:</strong> Expanded automated test coverage and production SLO validation readiness.</li>
+        <li><strong>Evaluation Focus:</strong> Structured server-side logging, request correlation IDs, and dashboard-ready telemetry.</li>
+        <li><strong>Evaluation Focus:</strong> Per-turn cost and usage governance with budget guardrails and alerting.</li>
+        <li><strong>Evaluation Focus:</strong> Data retention and PII handling controls aligned to compliance requirements.</li>
       </ul>
     </div>
 
@@ -217,7 +222,7 @@
       let recordingWarningTimer = null;
       let recordingElapsedTimer = null;
       let recordingStartedAt = null;
-      const RECORDING_AUTO_STOP_MS = 45 * 1000;
+      const RECORDING_AUTO_STOP_MS = 30 * 1000;
       const RECORDING_WARNING_MS = 5 * 1000;
 
       const startBtn = document.getElementById("startBtn");
@@ -326,8 +331,8 @@
             mediaRecorder.stop();
             stopBtn.disabled = true;
             startBtn.disabled = false;
-            setStatus("Recording auto-stopped at 45 seconds", "ok");
-            addEvent("recording:auto_stopped limit=45s");
+            setStatus("Recording auto-stopped at 30 seconds", "ok");
+            addEvent("recording:auto_stopped limit=30s");
           }
         }, RECORDING_AUTO_STOP_MS);
         setRecordingIndicator(true);
