@@ -485,9 +485,17 @@
       }
 
       function addEvent(entry) {
-        const ts = new Date().toLocaleTimeString();
+        const ts = formatTimestampWithMs(new Date());
         runtime.events.push(`[${ts}] ${entry}`);
         runtime.events = runtime.events.slice(-18);
+      }
+
+      function formatTimestampWithMs(date) {
+        const hh = String(date.getHours()).padStart(2, "0");
+        const mm = String(date.getMinutes()).padStart(2, "0");
+        const ss = String(date.getSeconds()).padStart(2, "0");
+        const mmm = String(date.getMilliseconds()).padStart(3, "0");
+        return `${hh}:${mm}:${ss}.${mmm}`;
       }
 
       function renderOps() {
