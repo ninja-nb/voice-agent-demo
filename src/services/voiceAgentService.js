@@ -21,8 +21,10 @@ export class VoiceAgentService {
       throw new Error(`Unsupported LLM provider: ${providerName}`);
     }
 
+    const resolvedModel = this.resolveModel(providerName, llmModel);
     const answer = await llm.generateAnswer(query, searchResults, {
-      model: llmModel || this.defaults.llmModel
+      model: resolvedModel,
+      allowedModels: this.getAllowedModels(providerName)
     });
 
     const tts = await this.ttsProvider.synthesize(answer.text, {
@@ -61,8 +63,10 @@ export class VoiceAgentService {
     }
 
     emitEvent("status", { stage: "answering" });
+    const resolvedModel = this.resolveModel(providerName, llmModel);
     const answer = await llm.generateAnswer(query, searchResults, {
-      model: llmModel || this.defaults.llmModel
+      model: resolvedModel,
+      allowedModels: this.getAllowedModels(providerName)
     });
     emitEvent("answer", {
       text: answer.text,
@@ -91,5 +95,36 @@ export class VoiceAgentService {
       voice: tts.voice
     });
     emitEvent("done", { ok: true });
+  }
+
+  resolveModel(providerName, requestedModel) {
+    const oldModelAllowlist = this.defaults.allowedModelsByProvider || {
+      openai: new Set(["gpt-3.5-turbo", "gpt-4-0613"]),
+      anthropic: new Set(["claude-3-haiku-20240307"])
+    };
+    const allowedModels = oldModelAllowlist[providerName];
+    const isAllowed = (model) =>
+      Array.isArray(allowedModels) ? allowedModels.includes(model) : allowedModels?.has(model);
+
+    if (requestedModel) {
+      if (!isAllowed(requestedModel)) {
+        throw new Error(`Model '${requestedModel}' is disabled. Select one of the allowed old models.`);
+      }
+      return requestedModel;
+    }
+    if (this.defaults.llmModels?.[providerName]) {
+      const defaultModel = this.defaults.llmModels[providerName];
+      if (!isAllowed(defaultModel)) {
+        return Array.isArray(allowedModels) ? allowedModels[0] : [...(allowedModels || [])][0];
+      }
+      return defaultModel;
+    }
+    return this.defaults.llmModel;
+  }
+
+  getAllowedModels(providerName) {
+    const allowed = this.defaults.allowedModelsByProvider?.[providerName];
+    if (!allowed) return [];
+    return Array.isArray(allowed) ? allowed : [...allowed];
   }
 }

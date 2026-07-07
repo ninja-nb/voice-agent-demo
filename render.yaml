@@ -20,5 +20,11 @@ services:
         value: openai
       - key: DEFAULT_LLM_MODEL
         value: gpt-4.1-mini
+      - key: DEFAULT_OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: DEFAULT_ANTHROPIC_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: ANTHROPIC_ENABLED_MODELS
+        value: "claude-haiku-4-5-20251001"
       - key: DEFAULT_TTS_VOICE
         value: alloy

@@ -10,20 +10,37 @@ export class AnthropicLlmProvider extends LlmProvider {
   }
 
   async generateAnswer(question, searchResults, opts = {}) {
-    const model = opts.model || "claude-3-5-sonnet-latest";
     const prompt = buildPrompt(question, searchResults);
-    const res = await this.client.messages.create({
-      model,
-      max_tokens: 700,
-      messages: [{ role: "user", content: prompt }]
-    });
-    const first = res.content.find((c) => c.type === "text");
-    return {
-      text: first?.text || "I could not generate a response.",
-      provider: "anthropic",
-      model
-    };
+    const requested = opts.model || "claude-3-haiku-20240307";
+    const candidates = uniqueModels([requested, ...(opts.allowedModels || [])]);
+
+    let lastError = null;
+    for (const model of candidates) {
+      try {
+        const res = await this.client.messages.create({
+          model,
+          max_tokens: 700,
+          messages: [{ role: "user", content: prompt }]
+        });
+        const first = res.content.find((c) => c.type === "text");
+        return {
+          text: first?.text || "I could not generate a response.",
+          provider: "anthropic",
+          model
+        };
+      } catch (error) {
+        lastError = error;
+        const isModelNotFound = error?.status === 404;
+        if (!isModelNotFound) throw error;
+      }
+    }
+
+    throw lastError || new Error("No Anthropic model is available for this account.");
   }
+}
+
+function uniqueModels(models) {
+  return [...new Set(models.filter(Boolean))];
 }
 
 function buildPrompt(question, searchResults) {

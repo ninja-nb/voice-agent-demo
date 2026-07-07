@@ -32,6 +32,12 @@ Sample project that accepts audio input, transcribes it, runs search-backed AI a
    - `OPENAI_API_KEY` (required for STT + TTS + OpenAI LLM)
    - `SERPER_API_KEY` (optional but recommended for live search)
    - `ANTHROPIC_API_KEY` (needed only if selecting anthropic provider)
+   - Optional model defaults:
+     - `DEFAULT_OPENAI_MODEL=gpt-4.1-mini`
+     - `DEFAULT_ANTHROPIC_MODEL=claude-haiku-4-5-20251001` (cheaper Anthropic option)
+   - Anthropic model gating:
+     - `ANTHROPIC_ENABLED_MODELS=claude-haiku-4-5-20251001`
+     - Leave empty to hide Anthropic from UI and API capabilities.
 
 4. Start app:
 
@@ -78,6 +84,7 @@ Response stream:
 
 - `/api/agent/turn` returns full output in one payload.
 - `/api/agent/stream` streams pipeline updates and audio chunks using SSE.
+- Provider-specific default models are supported so Anthropic does not receive OpenAI model IDs.
 
 ## Deploy on Render (Free Tier)
 
@@ -89,6 +96,7 @@ Response stream:
    - `OPENAI_API_KEY` (required)
    - `SERPER_API_KEY` (recommended)
    - `ANTHROPIC_API_KEY` (only if using anthropic provider)
+   - `ANTHROPIC_ENABLED_MODELS` (only list models your Anthropic account can access)
 6. Click **Apply** to deploy.
 
 After deploy, open:

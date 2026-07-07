@@ -28,6 +28,11 @@
       </div>
 
       <div class="row">
+        <label for="llmModel">LLM Model (old models only):</label>
+        <select id="llmModel"></select>
+      </div>
+
+      <div class="row">
         <button id="startBtn">Start Recording</button>
         <button id="stopBtn" disabled>Stop Recording</button>
         <input type="file" id="audioFile" accept="audio/*" />
@@ -68,6 +73,17 @@
       const searchResultsEl = document.getElementById("searchResults");
       const audioPlayer = document.getElementById("audioPlayer");
       const llmProvider = document.getElementById("llmProvider");
+      const llmModel = document.getElementById("llmModel");
+      let currentAudioUrl = null;
+      let modelOptionsByProvider = {
+        openai: ["gpt-3.5-turbo", "gpt-4-0613"]
+      };
+
+      audioPlayer.addEventListener("error", () => {
+        statusEl.textContent = "Audio playback error. Try Run Agent Turn again.";
+      });
+      llmProvider.addEventListener("change", populateModelOptions);
+      initializeCapabilities();
 
       startBtn.onclick = async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -110,6 +126,7 @@
           const form = new FormData();
           form.append("audio", blob, blob.name || "recording.webm");
           form.append("llmProvider", llmProvider.value);
+          form.append("llmModel", llmModel.value);
 
           const res = await fetch("/api/agent/turn", { method: "POST", body: form });
           const json = await res.json();
@@ -123,7 +140,7 @@
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
           const outBlob = new Blob([bytes], { type: json.audioMimeType || "audio/mpeg" });
-          audioPlayer.src = URL.createObjectURL(outBlob);
+          setPlayerBlob(outBlob);
 
           statusEl.textContent = "Done";
         } catch (err) {
@@ -143,6 +160,7 @@
           const form = new FormData();
           form.append("audio", blob, blob.name || "recording.webm");
           form.append("llmProvider", llmProvider.value);
+          form.append("llmModel", llmModel.value);
 
           const res = await fetch("/api/agent/stream", { method: "POST", body: form });
           if (!res.ok) {
@@ -194,7 +212,7 @@
                     throw new Error("No streamed audio chunks received.");
                   }
                   const outBlob = new Blob(audioChunks, { type: outputMimeType || "audio/mpeg" });
-                  audioPlayer.src = URL.createObjectURL(outBlob);
+                  setPlayerBlob(outBlob);
                   statusEl.textContent = "Stream done";
                 },
                 onError: (message) => {
@@ -245,6 +263,57 @@
         if (eventName === "tts_complete") handlers.onTtsComplete(payload.mimeType);
         if (eventName === "done") handlers.onDone();
         if (eventName === "error") handlers.onError(payload.message);
+      }
+
+      function setPlayerBlob(blob) {
+        if (currentAudioUrl) {
+          URL.revokeObjectURL(currentAudioUrl);
+        }
+        currentAudioUrl = URL.createObjectURL(blob);
+        audioPlayer.src = currentAudioUrl;
+        audioPlayer.load();
+
+        // Best effort: if browser allows, start playback automatically.
+        audioPlayer.play().catch(() => {});
+      }
+
+      function populateModelOptions() {
+        const provider = llmProvider.value;
+        const models = modelOptionsByProvider[provider] || [];
+        llmModel.innerHTML = "";
+        for (const model of models) {
+          const option = document.createElement("option");
+          option.value = model;
+          option.textContent = model;
+          llmModel.appendChild(option);
+        }
+        if (models.length) llmModel.value = models[0];
+      }
+
+      async function initializeCapabilities() {
+        try {
+          const res = await fetch("/api/capabilities");
+          if (!res.ok) throw new Error("Failed to load capabilities.");
+          const data = await res.json();
+          const providers = data.providers || [];
+          modelOptionsByProvider = data.modelsByProvider || modelOptionsByProvider;
+          llmProvider.innerHTML = "";
+          for (const provider of providers) {
+            const option = document.createElement("option");
+            option.value = provider;
+            option.textContent = provider;
+            llmProvider.appendChild(option);
+          }
+          if (!providers.length) {
+            statusEl.textContent = "No LLM providers enabled. Check API keys.";
+            return;
+          }
+          llmProvider.value = providers[0];
+          populateModelOptions();
+        } catch (err) {
+          statusEl.textContent = `Error: ${err.message}`;
+          populateModelOptions();
+        }
       }
     </script>
   </body>

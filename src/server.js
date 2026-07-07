@@ -14,10 +14,14 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 
 app.use(express.json());
 app.use(express.static("public"));
 
-const service = buildService();
+const { service, capabilities } = buildService();
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/api/capabilities", (_req, res) => {
+  res.json(capabilities);
 });
 
 app.post("/api/agent/turn", upload.single("audio"), async (req, res) => {
@@ -100,16 +104,28 @@ app.listen(config.port, () => {
 
 function buildService() {
   const sttProvider = new OpenAiSttProvider(config.openaiApiKey);
+  const enabledModelsByProvider = {
+    openai: ["gpt-3.5-turbo", "gpt-4-0613"],
+    anthropic: config.anthropicEnabledModels
+  };
   const llmProviders = {
     openai: new OpenAiLlmProvider(config.openaiApiKey)
   };
-  if (config.anthropicApiKey) {
+  if (config.anthropicApiKey && enabledModelsByProvider.anthropic.length) {
     llmProviders.anthropic = new AnthropicLlmProvider(config.anthropicApiKey);
   }
   const ttsProvider = new OpenAiTtsProvider(config.openaiApiKey);
   const searchTool = new SerperSearchTool(config.serperApiKey);
 
-  return new VoiceAgentService({
+  const capabilities = {
+    providers: Object.keys(llmProviders),
+    modelsByProvider: Object.fromEntries(
+      Object.keys(llmProviders).map((provider) => [provider, enabledModelsByProvider[provider] || []])
+    )
+  };
+
+  return {
+    service: new VoiceAgentService({
     sttProvider,
     llmProviders,
     ttsProvider,
@@ -117,7 +133,14 @@ function buildService() {
     defaults: {
       llmProvider: config.defaultLlmProvider,
       llmModel: config.defaultLlmModel,
+      llmModels: {
+        openai: config.defaultOpenAiModel,
+        anthropic: config.defaultAnthropicModel
+      },
+      allowedModelsByProvider: enabledModelsByProvider,
       ttsVoice: config.defaultTtsVoice
     }
-  });
+    }),
+    capabilities
+  };
 }
