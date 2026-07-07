@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Voice AI Agent Sample</title>
+    <title>Voice Agent Demo</title>
     <style>
       body { font-family: Arial, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
       .row { margin: 0.75rem 0; }
@@ -23,6 +23,26 @@
         background: #eef6ff;
       }
       .status-title { font-weight: 700; margin-right: 0.5rem; }
+      .recording-indicator {
+        display: none;
+        margin-left: 0.75rem;
+        color: #b42318;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      .recording-indicator.active { display: inline-flex; align-items: center; gap: 0.35rem; }
+      .recording-spinner {
+        width: 12px;
+        height: 12px;
+        border: 2px solid #f6b4b4;
+        border-top-color: #d92d20;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
       .status-running { border-color: #ffd27a; background: #fff8e8; }
       .status-ok { border-color: #9dd9a4; background: #ecfbef; }
       .status-error { border-color: #f3a8a8; background: #fff0f0; }
@@ -44,22 +64,22 @@
     </style>
   </head>
   <body>
-    <h1>Voice AI Agent Sample</h1>
-    <p class="muted">Record audio, transcribe, search, get AI answer, and hear TTS output.</p>
+    <h1>Voice Channel Orchestrator Demo</h1>
+    <p class="muted">Run an end-to-end agent turn with speech input, tool grounding, model reasoning, and voice response output.</p>
 
     <div class="card">
-      <h3>Page Summary</h3>
+      <h3>Demo Flow Overview</h3>
       <p class="muted">
-        This page demonstrates an end-to-end voice AI workflow: audio input -> speech-to-text -> search grounding
-        -> LLM answer -> text-to-speech playback. It supports both single-response mode and live streaming mode.
+        End-to-end agent execution pipeline: input capture -> STT adapter -> search tool grounding ->
+        LLM provider inference -> TTS adapter playback. You can run a synchronous turn or stream orchestration events.
       </p>
-      <h3>How to Use</h3>
+      <h3>Quick Steps</h3>
       <ol class="guide-list">
-        <li>Select an available <strong>LLM Provider</strong> and <strong>Model</strong>.</li>
-        <li>Provide audio by either recording (`Start Recording`/`Stop Recording`) or uploading a file.</li>
-        <li>Click <strong>Run Once</strong> for one final response, or <strong>Run Live</strong> for stage-by-stage updates.</li>
-        <li>Review transcript, answer, and search evidence in the output panel.</li>
-        <li>Use the <strong>Operations & Debug</strong> section at the bottom to monitor status, timing, and runtime events.</li>
+        <li>Select an <strong>LLM Provider</strong> and <strong>Model</strong> from available capability options.</li>
+        <li>Capture user utterance by recording (<strong>Start Recording</strong> -> <strong>Stop Recording</strong>) or upload audio.</li>
+        <li>Use <strong>Run Once</strong> for a full agent turn response, or <strong>Run Live</strong> to observe streaming stage events.</li>
+        <li>Review transcript, grounded answer, search evidence, and synthesized voice output.</li>
+        <li>Use <strong>Observability & Telemetry</strong> for orchestration visibility (stage, duration, chunks, event trail).</li>
       </ol>
     </div>
 
@@ -73,50 +93,60 @@
       </div>
 
       <div class="row">
-        <label for="llmModel">LLM Model (old models only):</label>
+        <label for="llmModel">LLM Model:</label>
         <select id="llmModel"></select>
       </div>
 
       <div class="row">
         <button id="startBtn">Start Recording</button>
         <button id="stopBtn" disabled>Stop Recording</button>
+        <button id="downloadRecordingBtn" disabled>Download Recording</button>
         <input type="file" id="audioFile" accept="audio/*" />
       </div>
 
       <div class="row">
         <div class="button-group">
-          <button id="runBtn" title="Runs full pipeline and returns one final response payload.">
-            Run Once (Single Response)
-          </button>
           <button id="streamBtn" title="Runs pipeline with live stage updates and streamed audio chunks.">
-            Run Live (Streaming Updates)
+            Run Live (Streaming Orchestration)
+          </button>
+          <button id="runBtn" title="Runs full pipeline and returns one final response payload.">
+            Run Once (Synchronous Agent Turn)
           </button>
         </div>
         <div class="muted button-help">
-          <span><strong>Run Once:</strong> best for simple testing; one final response.</span>
-          <span><strong>Run Live:</strong> shows progress (`transcribing`, `searching`, `answering`) while processing.</span>
+          <span><strong>Run Once:</strong> executes one complete orchestrated turn and returns final artifacts.</span>
+          <span><strong>Run Live:</strong> streams stage-by-stage agent events (`transcribing`, `searching`, `answering`) during execution.</span>
         </div>
       </div>
 
       <div class="status-banner" id="statusBanner">
         <span class="status-title">System Status:</span>
-        <span id="status">Idle</span>
+        <span id="status">Ready</span>
+        <span id="recordingIndicator" class="recording-indicator">
+          <span class="recording-spinner"></span>
+          <span id="recordingElapsedText">Recording... 0s</span>
+        </span>
       </div>
     </div>
 
     <div class="card">
       <h3>Transcript</h3>
+      <p class="muted">STT adapter output from user utterance.</p>
       <pre id="transcript"></pre>
       <h3>Answer</h3>
+      <p class="muted">LLM provider response grounded by tool-retrieved context.</p>
       <pre id="answer"></pre>
       <h3>Search Results</h3>
+      <p class="muted">Tool invocation results used for grounding and citation context.</p>
       <pre id="searchResults"></pre>
       <h3>Audio Output</h3>
+      <p class="muted">TTS adapter output for voice response playback.</p>
       <audio id="audioPlayer" controls></audio>
     </div>
 
     <div class="card">
-      <h3>Operations & Debug</h3>
+      <h3>Observability & Telemetry</h3>
+      <p class="muted">Live orchestration diagnostics: runtime stages, latency, chunking, and event-level telemetry.</p>
       <div class="ops-grid">
         <div>
           <h4>Performance Indicators</h4>
@@ -131,13 +161,36 @@
       <div class="ops-events" id="eventsPanel">No events yet.</div>
     </div>
 
+    <div class="card">
+      <h3>Prototype Scope: Assumptions & Gaps</h3>
+      <p class="muted">
+        This is a prototype for architecture demonstration, not a production deployment.
+      </p>
+      <ul class="guide-list">
+        <li><strong>Assumption:</strong> Trusted demo environment with controlled usage and API keys.</li>
+        <li><strong>Assumption:</strong> Single-turn request flow focused on orchestration clarity over feature depth.</li>
+        <li><strong>Evaluation Focus:</strong> Authentication, rate limiting, and per-user quota controls for production rollout.</li>
+        <li><strong>Evaluation Focus:</strong> Formal guardrails and policy enforcement framework integration.</li>
+        <li><strong>Evaluation Focus:</strong> Resiliency patterns including timeouts, retries, circuit breaking, and fallback routing.</li>
+        <li><strong>Evaluation Focus:</strong> Vector database-backed retrieval and conversation memory capabilities.</li>
+        <li><strong>Evaluation Focus:</strong> Expanded automated test coverage and production SLO validation readiness.</li>
+      </ul>
+    </div>
+
     <script>
       let mediaRecorder;
       let chunks = [];
       let recordedBlob = null;
+      let recordingAutoStopTimer = null;
+      let recordingWarningTimer = null;
+      let recordingElapsedTimer = null;
+      let recordingStartedAt = null;
+      const RECORDING_AUTO_STOP_MS = 30 * 1000;
+      const RECORDING_WARNING_MS = 5 * 1000;
 
       const startBtn = document.getElementById("startBtn");
       const stopBtn = document.getElementById("stopBtn");
+      const downloadRecordingBtn = document.getElementById("downloadRecordingBtn");
       const runBtn = document.getElementById("runBtn");
       const streamBtn = document.getElementById("streamBtn");
       const audioFile = document.getElementById("audioFile");
@@ -152,19 +205,33 @@
       const eventsPanel = document.getElementById("eventsPanel");
       const llmProvider = document.getElementById("llmProvider");
       const llmModel = document.getElementById("llmModel");
+      const recordingIndicator = document.getElementById("recordingIndicator");
+      const recordingElapsedText = document.getElementById("recordingElapsedText");
       let currentAudioUrl = null;
       const runtime = {
         mode: "-",
         stage: "Idle",
         provider: "-",
         model: "-",
+        requestId: "-",
+        audioInputBytes: 0,
+        audioInputType: "-",
         requestStartedAt: null,
+        stageStartedAt: null,
         durationMs: 0,
+        firstEventLatencyMs: 0,
+        streamCompleted: "n/a",
+        stageDurations: {},
         transcriptChars: 0,
         answerChars: 0,
         searchResultCount: 0,
         audioChunks: 0,
         audioBytes: 0,
+        retryCount: 0,
+        fallbackUsed: "no",
+        guardrailStatus: "n/a (prototype)",
+        estimatedTokens: 0,
+        estimatedCostUsd: 0,
         lastError: "-",
         events: []
       };
@@ -179,19 +246,53 @@
         renderOps();
       });
       llmProvider.addEventListener("change", populateModelOptions);
+      downloadRecordingBtn.onclick = () => {
+        if (!recordedBlob) return;
+        const ext = mimeToExtension(recordedBlob.type);
+        const url = URL.createObjectURL(recordedBlob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `voice-recording-${Date.now()}.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        addEvent(`recording:downloaded bytes=${recordedBlob.size}`);
+      };
       initializeCapabilities();
 
       startBtn.onclick = async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
+        recordedBlob = null;
+        updateDownloadRecordingButton();
         chunks = [];
         mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
         mediaRecorder.onstop = () => {
+          setRecordingIndicator(false);
+          clearRecordingTimers();
           recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
-          setStatus("Recording captured", "ok");
+          updateDownloadRecordingButton();
+          setStatus("Recording captured, Run Live/Run Once to process", "ok");
           addEvent(`recording:captured bytes=${recordedBlob.size}`);
         };
         mediaRecorder.start();
+        recordingWarningTimer = setTimeout(() => {
+          if (mediaRecorder && mediaRecorder.state === "recording") {
+            setStatus("Warning: recording will auto-stop in 5 seconds", "running");
+            addEvent("recording:warning auto_stop_in=5s");
+          }
+        }, RECORDING_AUTO_STOP_MS - RECORDING_WARNING_MS);
+        recordingAutoStopTimer = setTimeout(() => {
+          if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+            stopBtn.disabled = true;
+            startBtn.disabled = false;
+            setStatus("Recording auto-stopped at 45 seconds", "ok");
+            addEvent("recording:auto_stopped limit=45s");
+          }
+        }, RECORDING_AUTO_STOP_MS);
+        setRecordingIndicator(true);
         setStatus("Recording in progress...", "running");
         addEvent("recording:started");
         startBtn.disabled = true;
@@ -199,7 +300,11 @@
       };
 
       stopBtn.onclick = () => {
-        mediaRecorder.stop();
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+        }
+        setRecordingIndicator(false);
+        clearRecordingTimers();
         stopBtn.disabled = true;
         startBtn.disabled = false;
       };
@@ -221,6 +326,8 @@
           } else {
             throw new Error("Please record audio or choose a file.");
           }
+          setInputMetadata(blob);
+          setStage("requesting");
 
           const form = new FormData();
           form.append("audio", blob, blob.name || "recording.webm");
@@ -231,6 +338,7 @@
           const res = await fetch("/api/agent/turn", { method: "POST", body: form });
           const json = await res.json();
           if (!res.ok) throw new Error(json.error || "Request failed");
+          setStage("rendering_output");
 
           transcriptEl.textContent = json.transcript;
           answerEl.textContent = json.answer;
@@ -265,6 +373,8 @@
           audioPlayer.removeAttribute("src");
 
           const blob = getSelectedAudioBlob();
+          setInputMetadata(blob);
+          setStage("connecting_stream");
           const form = new FormData();
           form.append("audio", blob, blob.name || "recording.webm");
           form.append("llmProvider", llmProvider.value);
@@ -295,9 +405,12 @@
             buffer = segments.pop() || "";
 
             for (const segment of segments) {
+              if (!runtime.firstEventLatencyMs && runtime.requestStartedAt) {
+                runtime.firstEventLatencyMs = Date.now() - runtime.requestStartedAt;
+              }
               handleSseSegment(segment, {
                 onStatus: (stage) => {
-                  runtime.stage = stage;
+                  setStage(stage);
                   setStatus(`Streaming: ${stage}`, "running");
                   addEvent(`stage:${stage}`);
                   renderOps();
@@ -336,6 +449,7 @@
                   }
                   const outBlob = new Blob(audioChunks, { type: outputMimeType || "audio/mpeg" });
                   setPlayerBlob(outBlob);
+                  runtime.streamCompleted = "yes";
                   finishRequest("Stream completed");
                 },
                 onError: (message) => {
@@ -442,38 +556,94 @@
       }
 
       function beginRequest(mode) {
+        const requestId = createRequestId();
         runtime.mode = mode;
+        runtime.requestId = requestId;
         runtime.stage = "starting";
         runtime.provider = llmProvider.value;
         runtime.model = llmModel.value;
         runtime.requestStartedAt = Date.now();
+        runtime.stageStartedAt = runtime.requestStartedAt;
         runtime.durationMs = 0;
+        runtime.firstEventLatencyMs = 0;
+        runtime.streamCompleted = mode === "stream" ? "no" : "n/a";
+        runtime.stageDurations = {};
+        runtime.audioInputBytes = 0;
+        runtime.audioInputType = "-";
         runtime.transcriptChars = 0;
         runtime.answerChars = 0;
         runtime.searchResultCount = 0;
         runtime.audioChunks = 0;
         runtime.audioBytes = 0;
+        runtime.retryCount = 0;
+        runtime.fallbackUsed = "no";
+        runtime.guardrailStatus = "n/a (prototype)";
+        runtime.estimatedTokens = 0;
+        runtime.estimatedCostUsd = 0;
         runtime.lastError = "-";
         runtime.events = [];
-        addEvent(`request:begin mode=${mode}`);
+        addEvent(`request:begin id=${requestId} mode=${mode}`);
         renderOps();
       }
 
       function finishRequest(message) {
+        finalizeCurrentStage();
         runtime.durationMs = runtime.requestStartedAt ? Date.now() - runtime.requestStartedAt : 0;
         runtime.stage = "done";
+        runtime.estimatedTokens = estimateTokens(runtime.transcriptChars + runtime.answerChars);
+        runtime.estimatedCostUsd = estimateCostUsd(runtime.estimatedTokens);
         setStatus(message, "ok");
         addEvent(`request:done durationMs=${runtime.durationMs}`);
         renderOps();
       }
 
       function failRequest(err) {
+        finalizeCurrentStage();
         runtime.durationMs = runtime.requestStartedAt ? Date.now() - runtime.requestStartedAt : 0;
         runtime.stage = "error";
+        runtime.streamCompleted = runtime.mode === "stream" ? "no" : runtime.streamCompleted;
+        runtime.estimatedTokens = estimateTokens(runtime.transcriptChars + runtime.answerChars);
+        runtime.estimatedCostUsd = estimateCostUsd(runtime.estimatedTokens);
         runtime.lastError = err?.message || String(err);
         setStatus(`Error: ${runtime.lastError}`, "error");
         addEvent(`request:error ${runtime.lastError}`);
         renderOps();
+      }
+
+      function setInputMetadata(blob) {
+        runtime.audioInputBytes = blob?.size || 0;
+        runtime.audioInputType = blob?.type || "unknown";
+      }
+
+      function setStage(nextStage) {
+        const now = Date.now();
+        if (runtime.stage && runtime.stageStartedAt) {
+          const elapsed = now - runtime.stageStartedAt;
+          runtime.stageDurations[runtime.stage] = (runtime.stageDurations[runtime.stage] || 0) + elapsed;
+        }
+        runtime.stage = nextStage;
+        runtime.stageStartedAt = now;
+      }
+
+      function finalizeCurrentStage() {
+        if (!runtime.stage || !runtime.stageStartedAt) return;
+        const elapsed = Date.now() - runtime.stageStartedAt;
+        runtime.stageDurations[runtime.stage] = (runtime.stageDurations[runtime.stage] || 0) + elapsed;
+        runtime.stageStartedAt = Date.now();
+      }
+
+      function createRequestId() {
+        if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+        return `req-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      }
+
+      function estimateTokens(charCount) {
+        return Math.max(0, Math.round((charCount || 0) / 4));
+      }
+
+      function estimateCostUsd(tokens) {
+        const roughCostPer1kTokens = 0.005;
+        return ((tokens || 0) / 1000) * roughCostPer1kTokens;
       }
 
       function setStatus(message, tone) {
@@ -482,6 +652,51 @@
         if (tone === "running") statusBanner.classList.add("status-running");
         if (tone === "ok") statusBanner.classList.add("status-ok");
         if (tone === "error") statusBanner.classList.add("status-error");
+      }
+
+      function setRecordingIndicator(isRecording) {
+        recordingIndicator.classList.toggle("active", Boolean(isRecording));
+        if (isRecording) {
+          recordingStartedAt = Date.now();
+          recordingElapsedText.textContent = "Recording... 0s";
+          if (recordingElapsedTimer) clearInterval(recordingElapsedTimer);
+          recordingElapsedTimer = setInterval(() => {
+            if (!recordingStartedAt) return;
+            const elapsedSec = Math.floor((Date.now() - recordingStartedAt) / 1000);
+            recordingElapsedText.textContent = `Recording... ${elapsedSec}s`;
+          }, 250);
+        } else {
+          recordingStartedAt = null;
+          recordingElapsedText.textContent = "Recording... 0s";
+          if (recordingElapsedTimer) {
+            clearInterval(recordingElapsedTimer);
+            recordingElapsedTimer = null;
+          }
+        }
+      }
+
+      function clearRecordingTimers() {
+        if (recordingAutoStopTimer) {
+          clearTimeout(recordingAutoStopTimer);
+          recordingAutoStopTimer = null;
+        }
+        if (recordingWarningTimer) {
+          clearTimeout(recordingWarningTimer);
+          recordingWarningTimer = null;
+        }
+      }
+
+      function updateDownloadRecordingButton() {
+        downloadRecordingBtn.disabled = !recordedBlob;
+      }
+
+      function mimeToExtension(mimeType) {
+        if (!mimeType) return "webm";
+        if (mimeType.includes("wav")) return "wav";
+        if (mimeType.includes("mpeg") || mimeType.includes("mp3")) return "mp3";
+        if (mimeType.includes("ogg")) return "ogg";
+        if (mimeType.includes("webm")) return "webm";
+        return "bin";
       }
 
       function addEvent(entry) {
@@ -499,10 +714,17 @@
       }
 
       function renderOps() {
+        const stageDurationsText =
+          Object.entries(runtime.stageDurations)
+            .map(([stage, ms]) => `${stage}: ${ms} ms`)
+            .join(" | ") || "-";
         perfPanel.innerHTML = `
+          <div><strong>Request ID:</strong> ${runtime.requestId}</div>
           <div><strong>Mode:</strong> ${runtime.mode}</div>
           <div><strong>Stage:</strong> ${runtime.stage}</div>
+          <div><strong>First Event Latency:</strong> ${runtime.firstEventLatencyMs || 0} ms</div>
           <div><strong>Total Duration:</strong> ${runtime.durationMs} ms</div>
+          <div><strong>Stage Latencies:</strong> ${stageDurationsText}</div>
           <div><strong>Search Results:</strong> ${runtime.searchResultCount}</div>
           <div><strong>Audio Chunks:</strong> ${runtime.audioChunks}</div>
           <div><strong>Audio Bytes:</strong> ${runtime.audioBytes}</div>
@@ -510,8 +732,15 @@
         debugPanel.innerHTML = `
           <div><strong>Provider:</strong> ${runtime.provider}</div>
           <div><strong>Model:</strong> ${runtime.model}</div>
+          <div><strong>Input Audio:</strong> ${runtime.audioInputBytes} bytes (${runtime.audioInputType})</div>
           <div><strong>Transcript Chars:</strong> ${runtime.transcriptChars}</div>
           <div><strong>Answer Chars:</strong> ${runtime.answerChars}</div>
+          <div><strong>Estimated Tokens:</strong> ${runtime.estimatedTokens}</div>
+          <div><strong>Estimated Cost:</strong> $${runtime.estimatedCostUsd.toFixed(4)}</div>
+          <div><strong>Stream Complete:</strong> ${runtime.streamCompleted}</div>
+          <div><strong>Retries:</strong> ${runtime.retryCount}</div>
+          <div><strong>Fallback Used:</strong> ${runtime.fallbackUsed}</div>
+          <div><strong>Guardrails:</strong> ${runtime.guardrailStatus}</div>
           <div><strong>Last Error:</strong> ${runtime.lastError}</div>
         `;
         eventsPanel.textContent = runtime.events.length

@@ -57,8 +57,13 @@ app.post("/api/agent/turn", upload.single("audio"), async (req, res) => {
       audioMimeType: result.speech.mimeType
     });
   } catch (error) {
-    console.error("Agent turn failed:", error);
-    res.status(500).json({ error: error?.message || "Unknown error." });
+    const statusCode = Number(error?.status) || 500;
+    if (statusCode >= 500) {
+      console.error("Agent turn failed:", error);
+    } else {
+      console.warn("Agent turn validation issue:", error?.message || error);
+    }
+    res.status(statusCode).json({ error: error?.message || "Unknown error." });
   }
 });
 
@@ -92,7 +97,12 @@ app.post("/api/agent/stream", upload.single("audio"), async (req, res) => {
     );
     res.end();
   } catch (error) {
-    console.error("Agent stream failed:", error);
+    const statusCode = Number(error?.status) || 500;
+    if (statusCode >= 500) {
+      console.error("Agent stream failed:", error);
+    } else {
+      console.warn("Agent stream validation issue:", error?.message || error);
+    }
     sendEvent("error", { message: error?.message || "Unknown error." });
     res.end();
   }

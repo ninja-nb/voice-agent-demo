@@ -11,7 +11,7 @@ export class VoiceAgentService {
     const stt = await this.sttProvider.transcribeAudio(audioBuffer, audioMimeType);
     const query = stt.text?.trim();
     if (!query) {
-      throw new Error("No transcript text produced from audio.");
+      throw createNoTranscriptError();
     }
 
     const searchResults = await this.searchTool.search(query);
@@ -48,7 +48,7 @@ export class VoiceAgentService {
     const stt = await this.sttProvider.transcribeAudio(audioBuffer, audioMimeType);
     const query = stt.text?.trim();
     if (!query) {
-      throw new Error("No transcript text produced from audio.");
+      throw createNoTranscriptError();
     }
     emitEvent("transcript", { text: stt.text, provider: stt.provider, model: stt.model });
 
@@ -127,4 +127,11 @@ export class VoiceAgentService {
     if (!allowed) return [];
     return Array.isArray(allowed) ? allowed : [...allowed];
   }
+}
+
+function createNoTranscriptError() {
+  const error = new Error("No speech detected. Please record clearer audio and try again.");
+  error.code = "NO_TRANSCRIPT_TEXT";
+  error.status = 422;
+  return error;
 }
