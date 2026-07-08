@@ -129,15 +129,41 @@
       .tooling-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 0.35rem 1rem;
+        gap: 0.55rem 0.9rem;
         margin-top: 0.8rem;
       }
       .tooling-item {
         font-size: 0.9rem;
-        color: #333;
+        color: #1f2937;
+        background: #f8fafc;
+        border: 1px solid #dbe5f0;
+        border-radius: 8px;
+        padding: 0.45rem 0.6rem;
+        line-height: 1.35;
+        box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
       }
       .tooling-item strong {
-        color: #111;
+        color: #0f172a;
+      }
+      .tooling-heading {
+        margin-top: 1rem;
+        margin-bottom: 0.4rem;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 1rem;
+      }
+      .tooling-heading-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      }
+      .tooling-note {
+        margin-top: 0.45rem;
+        font-size: 0.84rem;
+        color: #4b5563;
       }
     </style>
   </head>
@@ -155,7 +181,10 @@
         <li><strong>Step 5:</strong> Review transcript, grounded answer, search evidence, and synthesized voice output.</li>
         <li><strong>Step 6:</strong> Use <strong>Observability & Telemetry</strong> for stage timing, event trail, and runtime details.</li>
       </ol>
-      <h4 style="margin-top: 1rem; margin-bottom: 0.4rem;">What This Run Uses</h4>
+      <h4 class="tooling-heading">
+        <span class="tooling-heading-dot"></span>
+        <span>What This Run Uses</span>
+      </h4>
       <div class="tooling-grid" id="toolingGrid">
         <div class="tooling-item"><strong>Transport:</strong> Classic HTTP API or LiveKit realtime mode</div>
         <div class="tooling-item"><strong>LiveKit:</strong> Session auth via <code>/api/livekit/token</code> and realtime turn controls</div>
@@ -170,6 +199,7 @@
         <div class="tooling-item"><strong>Metrics:</strong> In-memory failure counters via <code>/api/metrics</code></div>
         <div class="tooling-item"><strong>Validation:</strong> Audio MIME allowlist checks</div>
       </div>
+      <div class="tooling-note">Tip: Use the status banner and recent events panel to confirm active transport mode and runtime behavior during demos.</div>
     </div>
 
     <div class="card">
