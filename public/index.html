@@ -126,6 +126,19 @@
       .guide-list li { margin-bottom: 0.35rem; }
       .playback-fallback { margin-top: 0.5rem; }
       .advanced-section { display: none; }
+      .tooling-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 0.35rem 1rem;
+        margin-top: 0.8rem;
+      }
+      .tooling-item {
+        font-size: 0.9rem;
+        color: #333;
+      }
+      .tooling-item strong {
+        color: #111;
+      }
     </style>
   </head>
   <body>
@@ -142,6 +155,21 @@
         <li><strong>Step 5:</strong> Review transcript, grounded answer, search evidence, and synthesized voice output.</li>
         <li><strong>Step 6:</strong> Use <strong>Observability & Telemetry</strong> for stage timing, event trail, and runtime details.</li>
       </ol>
+      <h4 style="margin-top: 1rem; margin-bottom: 0.4rem;">What This Run Uses</h4>
+      <div class="tooling-grid" id="toolingGrid">
+        <div class="tooling-item"><strong>Transport:</strong> Classic HTTP API or LiveKit realtime mode</div>
+        <div class="tooling-item"><strong>LiveKit:</strong> Session auth via <code>/api/livekit/token</code> and realtime turn controls</div>
+        <div class="tooling-item"><strong>Input:</strong> Browser recording or uploaded audio</div>
+        <div class="tooling-item"><strong>STT:</strong> OpenAI speech-to-text</div>
+        <div class="tooling-item"><strong>Search:</strong> Serper web search adapter</div>
+        <div class="tooling-item"><strong>LLM:</strong> OpenAI or Anthropic (pluggable)</div>
+        <div class="tooling-item"><strong>TTS:</strong> OpenAI text-to-speech</div>
+        <div class="tooling-item"><strong>Reliability:</strong> Per-stage timeouts + retries</div>
+        <div class="tooling-item"><strong>Errors:</strong> Structured stage error codes</div>
+        <div class="tooling-item"><strong>Observability:</strong> request ID, stage latencies, retries, total duration</div>
+        <div class="tooling-item"><strong>Metrics:</strong> In-memory failure counters via <code>/api/metrics</code></div>
+        <div class="tooling-item"><strong>Validation:</strong> Audio MIME allowlist checks</div>
+      </div>
     </div>
 
     <div class="card">
